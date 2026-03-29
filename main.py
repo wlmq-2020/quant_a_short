@@ -358,6 +358,8 @@ def run_optimization(strategy_type=None):
         else:
             results_data = baseline_results
 
+        print(f"  基准回测完成，得到 {len(results_data)} 个策略结果")
+
         for strategy_type_key, results in results_data.items():
             if results:
                 returns = [r['metrics']['total_return_pct'] for r in results.values()]
@@ -371,6 +373,7 @@ def run_optimization(strategy_type=None):
                     'avg_win_rate': sum(win_rates) / len(win_rates) if win_rates else 0,
                     'avg_max_drawdown': sum(max_drawdowns) / len(max_drawdowns) if max_drawdowns else 0,
                 }
+                print(f"  - {strategy_type_key}: 基准收益率 {baseline_dict[strategy_type_key]['avg_return']:+.2f}%")
 
         # 3. 运行参数优化
         print("\n[3/5] 运行参数优化...")
