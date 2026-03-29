@@ -312,6 +312,50 @@ class AStockDataFetcher:
         self.logger.info(f"数据获取完成，成功获取 {len(results)}/{len(stock_codes)} 只股票")
         return results
 
+    def fetch_all_with_print(self):
+        """
+        下载所有股票数据（带print进度输出）
+
+        返回:
+            bool: 是否全部成功
+        """
+        print("=" * 80)
+        print("下载A股股票数据")
+        print("=" * 80)
+
+        stock_list = self.config.get_stock_list()
+        print(f"\n开始下载 {len(stock_list)} 只股票数据...")
+        print(f"时间范围: {self.config.START_DATE} 至 {self.config.END_DATE}")
+        print("-" * 80)
+
+        success_count = 0
+        fail_count = 0
+
+        for i, stock_code in enumerate(stock_list, 1):
+            print(f"[{i}/{len(stock_list)}] 下载: {stock_code}")
+            try:
+                df = self.fetch_stock_data(
+                    stock_code,
+                    self.config.START_DATE,
+                    self.config.END_DATE,
+                    self.config.KLINE_PERIOD
+                )
+                if df is not None and not df.empty:
+                    print(f"  成功: {len(df)} 条记录")
+                    success_count += 1
+                else:
+                    print(f"  失败: 无数据")
+                    fail_count += 1
+            except Exception as e:
+                print(f"  失败: {str(e)}")
+                fail_count += 1
+
+        print("-" * 80)
+        print(f"下载完成! 成功: {success_count}, 失败: {fail_count}")
+        print("=" * 80)
+
+        return fail_count == 0
+
     def test_fetch_single_stock(self, stock_code="sh600519", period="daily"):
         """
         测试获取单个股票数据（用于调试）

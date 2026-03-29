@@ -352,6 +352,9 @@ def run_optimization(strategy_type=None):
         baseline_results = comparator.run_all_strategies_backtest(stock_data, target_strategies)
 
         # 转换基准结果格式 - 正确解析 {'results': ..., 'timings': ...} 结构
+        print(f"  [调试] 基准回测返回类型: {type(baseline_results)}")
+        print(f"  [调试] 基准回测返回内容: {baseline_results.keys() if isinstance(baseline_results, dict) else 'N/A'}")
+
         baseline_dict = {}
         if isinstance(baseline_results, dict) and 'results' in baseline_results:
             results_data = baseline_results['results']
@@ -360,7 +363,8 @@ def run_optimization(strategy_type=None):
 
         print(f"  基准回测完成，得到 {len(results_data)} 个策略结果")
 
-        for strategy_type_key, results in results_data.items():
+        for i, (strategy_type_key, results) in enumerate(results_data.items(), 1):
+            print(f"  [{i}/{len(results_data)}] 处理策略: {strategy_type_key}")
             if results:
                 returns = [r['metrics']['total_return_pct'] for r in results.values()]
                 sharpe_ratios = [r['metrics']['sharpe_ratio'] for r in results.values() if r['metrics']['sharpe_ratio'] is not None]
@@ -374,6 +378,8 @@ def run_optimization(strategy_type=None):
                     'avg_max_drawdown': sum(max_drawdowns) / len(max_drawdowns) if max_drawdowns else 0,
                 }
                 print(f"  - {strategy_type_key}: 基准收益率 {baseline_dict[strategy_type_key]['avg_return']:+.2f}%")
+            else:
+                print(f"  - {strategy_type_key}: 无结果数据")
 
         # 3. 运行参数优化
         print("\n[3/5] 运行参数优化...")
@@ -406,13 +412,30 @@ def run_optimization(strategy_type=None):
         return False
 
 
+def fetch_all_stock_data():
+    """下载所有股票数据 - 调用data_fetcher模块"""
+    Config.ensure_dirs()
+    from logger.logger import GlobalLogger
+    logger = GlobalLogger(
+        log_dir=Config.LOG_DIR,
+        log_level=Config.LOG_LEVEL,
+        retention_days=Config.LOG_RETENTION_DAYS
+    )
+    data_fetcher = AStockDataFetcher(Config, logger)
+    return data_fetcher.fetch_all_with_print()
+
+
 if __name__ == "__main__":
     # 【强制】检查项目结构规则
     check_project_structure()
 
     # 检查命令行参数
     if len(sys.argv) > 1:
-        if sys.argv[1] == "--compare-strategies":
+        if sys.argv[1] == "--fetch-data":
+            # 下载所有股票数据
+            success = fetch_all_stock_data()
+            sys.exit(0 if success else 1)
+        elif sys.argv[1] == "--compare-strategies":
             # 循环测试所有策略并生成对比报告
             success, _, _ = run_all_strategies_backtest()
             sys.exit(0 if success else 1)
