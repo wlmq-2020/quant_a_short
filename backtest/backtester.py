@@ -230,6 +230,189 @@ class BacktraderBacktester:
                 'kc_period': 20,
                 'kc_multiplier': 2.0,
             })
+        elif strategy_type == 'macd_kdj_fibonacci':
+            params.update({
+                'macd_fast': 8,
+                'macd_slow': 21,
+                'macd_signal': 5,
+                'kdj_n': 9,
+                'kdj_m1': 3,
+                'kdj_m2': 3,
+            })
+        elif strategy_type == 'boll_rsi_optimized':
+            params.update({
+                'bb_period': 18,
+                'bb_std': 2.2,
+                'rsi_period': 16,
+                'rsi_overbought': 67,
+                'rsi_oversold': 33,
+            })
+        elif strategy_type == 'kdj_rsi_optimized':
+            params.update({
+                'kdj_n': 10,
+                'kdj_m1': 4,
+                'kdj_m2': 4,
+                'rsi_period': 16,
+                'rsi_overbought': 68,
+                'rsi_oversold': 32,
+                'k_oversold': 22,
+                'k_overbought': 78,
+            })
+        elif strategy_type == 'macd_with_atr':
+            params.update({
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+                'atr_period': 14,
+                'atr_multiplier': 2.0,
+                'volume_ma_period': 20,
+            })
+        elif strategy_type == 'rsi_with_trend':
+            params.update({
+                'rsi_period': 14,
+                'rsi_overbought': 70,
+                'rsi_oversold': 30,
+                'ma_period': 20,
+                'bb_period': 20,
+                'bb_std': 2.0,
+            })
+        elif strategy_type == 'turtle_with_filter':
+            params.update({
+                'entry_period': 20,
+                'exit_period': 10,
+                'atr_period': 14,
+                'atr_multiplier': 2.0,
+                'volume_ma_period': 20,
+            })
+        elif strategy_type == 'boll_rsi':
+            params.update({
+                'boll_period': 20,
+                'bb_std': 2.0,
+                'rsi_period': 14,
+                'rsi_oversold': 35,
+                'rsi_overbought': 70,
+                'stop_loss_mult': 0.98,
+            })
+        elif strategy_type == 'turtle_breakout':
+            params.update({
+                'entry_period': 20,
+                'exit_period': 10,
+                'atr_period': 14,
+                'atr_mult': 2.0,
+                'vol_mult': 1.5,
+            })
+        elif strategy_type == 'triple_ema':
+            params.update({
+                'ema_short': 8,
+                'ema_mid': 21,
+                'ema_long': 55,
+                'vol_period': 20,
+                'vol_mult': 1.2,
+            })
+        elif strategy_type == 'kdj_macd_resonance':
+            params.update({
+                'kdj_n': 9,
+                'kdj_m1': 3,
+                'kdj_m2': 3,
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+                'kdj_oversold': 30,
+                'kdj_overbought': 70,
+            })
+        elif strategy_type == 'rsi_atr_adaptive':
+            params.update({
+                'rsi_period': 14,
+                'rsi_oversold': 30,
+                'rsi_entry': 35,
+                'rsi_exit': 70,
+                'ma_period': 20,
+                'atr_period': 14,
+                'atr_mult_normal': 3.0,
+                'atr_mult_mid': 2.0,
+                'atr_mult_tight': 1.2,
+                'profit_mid': 0.08,
+                'profit_tight': 0.15,
+            })
+        elif strategy_type == 'macd_boll':
+            params.update({
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+                'boll_period': 20,
+                'bb_std': 2.0,
+            })
+        elif strategy_type == 'kdj_rsi':
+            params.update({
+                'kdj_n': 9,
+                'kdj_m1': 3,
+                'kdj_m2': 3,
+                'rsi_period': 14,
+                'rsi_oversold': 30,
+                'rsi_overbought': 70,
+                'k_oversold': 20,
+                'k_overbought': 80,
+            })
+        elif strategy_type == 'ma_volume':
+            params.update({
+                'ma_short': 10,
+                'ma_long': 30,
+                'ma_trend': 60,
+                'vol_period': 20,
+                'vol_mult': 1.5,
+            })
+        elif strategy_type == 'atr_stop':
+            params.update({
+                'breakout_period': 20,
+                'atr_period': 14,
+                'atr_multiplier': 2.0,
+                'trail_percent': 0.1,
+                'vol_mult': 1.3,
+            })
+        elif strategy_type == 'composite':
+            params.update({
+                'ema_short': 20,
+                'ema_long': 60,
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+                'rsi_period': 14,
+                'rsi_oversold': 30,
+                'rsi_recovery': 40,
+                'rsi_overbought': 70,
+                'atr_period': 14,
+                'atr_multiplier': 2.5,
+                'vol_mult': 1.4,
+            })
+        elif strategy_type == 'ema_rsi':
+            params.update({
+                'ema_short': 20,
+                'ema_long': 60,
+                'rsi_period': 14,
+                'rsi_overbought': 70,
+                'rsi_oversold': 30,
+            })
+        elif strategy_type == 'dual_macd':
+            params.update({
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+                'conf_fast': 5,
+                'conf_slow': 13,
+                'conf_signal': 6,
+                'atr_period': 14,
+                'atr_trail_n': 2.5,
+                'atr_trail_hi': 1.8,
+                'atr_trail_pk': 1.2,
+                'profit_mid': 0.12,
+                'profit_pk': 0.30,
+            })
+        elif strategy_type == 'macd':
+            params.update({
+                'macd_fast': 12,
+                'macd_slow': 26,
+                'macd_signal': 9,
+            })
 
         # 应用覆盖参数（优先级最高）
         if override_params:
@@ -645,6 +828,7 @@ class StrategyComparator:
         from datetime import datetime
 
         if strategy_types is None:
+            # 默认只包含普通策略，优化策略需要明确指定
             strategy_types = [
                 'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
                 'macd_zero_axis', 'triple_screen', 'turtle_trading', 'momentum',

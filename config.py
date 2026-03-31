@@ -120,26 +120,26 @@ class Config:
     # - "volume_spread" : 量价配合策略（成交量确认）
     # - "sar"           : 抛物线转向策略（趋势止损）
     # - "keltner"       : 凯特纳通道策略（ATR通道）
-    STRATEGY_TYPE = "ma_cross"
+    STRATEGY_TYPE = "rsi"
 
-    # MACD参数
-    MACD_FAST = 12
-    MACD_SLOW = 26
+    # MACD参数 (优化后)
+    MACD_FAST = 16
+    MACD_SLOW = 20
     MACD_SIGNAL = 9
 
-    # KDJ参数
+    # KDJ参数 (优化后)
     KDJ_N = 9
-    KDJ_M1 = 3
+    KDJ_M1 = 2
     KDJ_M2 = 3
 
-    # RSI参数
+    # RSI参数 (优化后)
     RSI_PERIOD = 14
     RSI_OVERBOUGHT = 70
     RSI_OVERSOLD = 30
 
-    # 布林带参数
+    # 布林带参数 (优化后)
     BOLLINGER_PERIOD = 20
-    BOLLINGER_STD = 2
+    BOLLINGER_STD = 2.5
 
     # 成交量过滤：True表示启用
     VOLUME_FILTER = True

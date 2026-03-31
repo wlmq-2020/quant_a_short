@@ -964,6 +964,7 @@ class KeltnerChannelStrategy(BaseAStockStrategy):
 # 策略工厂函数
 def get_strategy_class(strategy_type):
     """根据策略类型获取对应的Backtrader策略类"""
+    # 首先尝试从普通策略获取
     strategy_map = {
         'macd_kdj': MacdKdjStrategy,
         'rsi': RsiStrategy,
@@ -984,10 +985,17 @@ def get_strategy_class(strategy_type):
         'keltner': KeltnerChannelStrategy,
     }
 
-    if strategy_type not in strategy_map:
-        raise ValueError(f"未知的策略类型: {strategy_type}")
+    if strategy_type in strategy_map:
+        return strategy_map[strategy_type]
 
-    return strategy_map[strategy_type]
+    # 尝试从优化策略获取
+    try:
+        from strategy.optimized_strategies import get_optimized_strategy_class
+        return get_optimized_strategy_class(strategy_type)
+    except (ImportError, ValueError):
+        pass
+
+    raise ValueError(f"未知的策略类型: {strategy_type}")
 
 
 def create_strategy_with_config(strategy_type, config, override_params=None):

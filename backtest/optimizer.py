@@ -233,9 +233,9 @@ class StrategyParameterOptimizer:
         # 优化结果缓存
         self.optimization_results = {}
 
-        # 导入参数空间
-        from strategy.param_space import PARAM_SPACES
-        self.param_spaces = PARAM_SPACES
+        # 导入参数空间（包括优化策略）
+        from strategy.param_space import get_all_param_spaces
+        self.param_spaces = get_all_param_spaces()
 
     def optimize_strategy(self, strategy_type, stock_data, optimization_metric='composite_score'):
         """
@@ -263,6 +263,8 @@ class StrategyParameterOptimizer:
 
         if result:
             self.optimization_results[strategy_type] = result
+            # 更新最优参数、记录日志、更新config
+            self._update_each_strategy_best_params({strategy_type: result})
 
         return result
 
@@ -278,9 +280,11 @@ class StrategyParameterOptimizer:
         返回:
             dict: 所有策略的优化结果
         """
-        from strategy.param_space import get_all_strategy_types
+        from strategy.param_space import get_all_strategy_types_including_optimized
 
         if strategy_types is None:
+            # 默认只优化普通策略，不包含优化策略
+            from strategy.param_space import get_all_strategy_types
             strategy_types = get_all_strategy_types()
 
         print("=" * 80)
@@ -386,4 +390,198 @@ class StrategyParameterOptimizer:
             f.write("=" * 150 + "\n")
 
         print(f"\n优化对比报告已保存: {report_path}")
+
+        # 每个策略更新自己的最优参数（滚动更新）
+        self._update_each_strategy_best_params(optimized_results)
+
         return str(report_path)
+
+    def _update_each_strategy_best_params(self, optimized_results):
+        """
+        每个策略独立跟踪和更新自己的最优参数（滚动更新）
+
+        参数:
+            optimized_results: 优化结果字典
+        """
+        config_path = Path(__file__).parent.parent / "config.py"
+        best_params_file = self.temp_dir / "best_strategy_params.json"
+
+        # 1. 加载历史最优参数
+        historical_best = {}
+        if best_params_file.exists():
+            try:
+                with open(best_params_file, 'r', encoding='utf-8') as f:
+                    historical_best = json.load(f)
+                print(f"\n  已加载历史最优参数记录: {len(historical_best)} 个策略")
+            except Exception as e:
+                print(f"  读取历史最优参数失败: {e}")
+
+        # 2. 对比并更新每个策略的最优参数
+        updated_count = 0
+        print("\n  各策略优化结果对比:")
+        print("  " + "-" * 80)
+        print(f"  {'策略类型':<20} {'本次收益':<12} {'历史最优':<12} {'状态':<10}")
+        print("  " + "-" * 80)
+
+        for strategy_type, result in optimized_results.items():
+            if not result or 'best_result' not in result:
+                continue
+
+            current_return = result['best_result'].get('avg_return', -float('inf'))
+            current_params = result.get('best_params', {})
+            current_sharpe = result['best_result'].get('avg_sharpe', 0)
+
+            # 获取历史最优
+            hist_data = historical_best.get(strategy_type, {})
+            hist_return = hist_data.get('avg_return', -float('inf'))
+            status = "---"
+
+            # 如果本次收益更高，更新历史最优
+            if current_return > hist_return:
+                improvement = current_return - hist_return if hist_return != -float('inf') else current_return
+                historical_best[strategy_type] = {
+                    'avg_return': current_return,
+                    'avg_sharpe': current_sharpe,
+                    'best_params': current_params,
+                    'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                status = "↑ 更新!"
+                updated_count += 1
+
+                # 记录日志
+                if hist_return == -float('inf'):
+                    self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+                else:
+                    self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
+
+            elif strategy_type not in historical_best:
+                historical_best[strategy_type] = {
+                    'avg_return': current_return,
+                    'avg_sharpe': current_sharpe,
+                    'best_params': current_params,
+                    'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                status = "✓ 新增"
+                updated_count += 1
+
+                # 记录日志
+                self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+            else:
+                status = "保持历史"
+
+            print(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return:>+10.2f}%  {status}")
+
+        print("  " + "-" * 80)
+
+        # 3. 保存更新后的历史最优参数
+        try:
+            with open(best_params_file, 'w', encoding='utf-8') as f:
+                json.dump(historical_best, f, ensure_ascii=False, indent=2)
+            print(f"\n  历史最优参数已保存: {best_params_file}")
+            print(f"  共记录 {len(historical_best)} 个策略的最优参数")
+            if updated_count > 0:
+                print(f"  本次更新了 {updated_count} 个策略")
+        except Exception as e:
+            print(f"  保存历史最优参数失败: {e}")
+
+        # 4. 找出全局最优策略，更新config.py
+        if not historical_best:
+            print("  没有最优参数可更新到config.py")
+            return
+
+        # 从历史最优中找收益率最高的
+        top_strategy = None
+        top_return = -float('inf')
+        top_data = None
+
+        print("\n  历史最优策略排名 (Top 5):")
+        print("  " + "-" * 60)
+
+        sorted_strategies = sorted(
+            historical_best.items(),
+            key=lambda x: x[1].get('avg_return', -float('inf')),
+            reverse=True
+        )
+
+        for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
+            ret = data.get('avg_return', 0)
+            sharpe = data.get('avg_sharpe', 0)
+            print(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
+            if i == 1:
+                top_strategy = strategy_type
+                top_return = ret
+                top_data = data
+
+        print("  " + "-" * 60)
+
+        if not top_strategy or not top_data:
+            return
+
+        top_params = top_data.get('best_params', {})
+        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
+        print(f"  最优参数: {top_params}")
+
+        # 更新config.py
+        if not config_path.exists():
+            print(f"  警告: config.py 不存在: {config_path}")
+            return
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        updated = False
+        import re
+
+        # 参数映射：策略参数名 -> config参数名
+        param_mapping = {
+            'macd_fast': 'MACD_FAST',
+            'macd_slow': 'MACD_SLOW',
+            'macd_signal': 'MACD_SIGNAL',
+            'kdj_n': 'KDJ_N',
+            'kdj_m1': 'KDJ_M1',
+            'kdj_m2': 'KDJ_M2',
+            'rsi_period': 'RSI_PERIOD',
+            'rsi_overbought': 'RSI_OVERBOUGHT',
+            'rsi_oversold': 'RSI_OVERSOLD',
+            'bb_period': 'BOLLINGER_PERIOD',
+            'bb_std': 'BOLLINGER_STD',
+        }
+
+        # 更新config.py内容
+        for param_name, value in top_params.items():
+            if param_name in param_mapping:
+                config_name = param_mapping[param_name]
+
+                pattern = rf'(\s+){config_name}\s*=\s*[0-9.+-]+'
+                if isinstance(value, float):
+                    replacement = rf'\1{config_name} = {value}'
+                else:
+                    replacement = rf'\1{config_name} = {value}'
+
+                new_content, count = re.subn(pattern, replacement, content)
+                if count > 0:
+                    content = new_content
+                    updated = True
+                    print(f"  更新参数: {config_name} = {value}")
+
+        # 更新默认策略类型
+        basic_strategies = ['macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
+                           'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
+                           'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
+                           'sar', 'keltner', 'triple_screen']
+
+        if top_strategy in basic_strategies:
+            pattern = r"(\s+)STRATEGY_TYPE\s*=\s*['\"][^'\"]+['\"]"
+            replacement = rf'\1STRATEGY_TYPE = "{top_strategy}"'
+            new_content, count = re.subn(pattern, replacement, content)
+            if count > 0:
+                content = new_content
+                updated = True
+                print(f"  更新默认策略: STRATEGY_TYPE = {top_strategy}")
+
+        if updated:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print("  config.py 已更新!")
+        else:
+            print("  没有需要更新的参数")
