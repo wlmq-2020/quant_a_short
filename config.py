@@ -139,25 +139,6 @@ class Config:
     # - "keltner"       : 凯特纳通道策略（ATR通道）
     STRATEGY_TYPE = "rsi"
 
-    # MACD参数 (优化后)
-    MACD_FAST = 16
-    MACD_SLOW = 20
-    MACD_SIGNAL = 9
-
-    # KDJ参数 (优化后)
-    KDJ_N = 9
-    KDJ_M1 = 2
-    KDJ_M2 = 3
-
-    # RSI参数 (优化后)
-    RSI_PERIOD = 14
-    RSI_OVERBOUGHT = 70
-    RSI_OVERSOLD = 30
-
-    # 布林带参数 (优化后)
-    BOLLINGER_PERIOD = 20
-    BOLLINGER_STD = 2.5
-
     # 成交量过滤：True表示启用
     VOLUME_FILTER = True
     # 成交量倍数：大于N日均量
