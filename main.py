@@ -459,6 +459,19 @@ if __name__ == "__main__":
             # 查看进度
             task_name = sys.argv[2] if len(sys.argv) > 2 else None
             show_progress(task_name)
+        elif sys.argv[1] == "--evolve-strategies":
+            # 策略进化：淘汰劣质策略，更新策略池
+            print("=" * 80)
+            print("策略进化系统")
+            print("=" * 80)
+            from strategy.strategy_evolution import StrategyEvolutionSystem
+            evolution = StrategyEvolutionSystem()
+            auto_update = len(sys.argv) > 2 and sys.argv[2] == "--auto-update"
+            keep, eliminate = evolution.run_evolution_cycle(auto_update_config=auto_update)
+            print("\n" + "=" * 80)
+            print(f"保留策略 ({len(keep)} 个): {keep}")
+            print(f"淘汰策略 ({len(eliminate)} 个): {eliminate}")
+            print("=" * 80)
             sys.exit(0)
 
     # 运行完整系统（单策略回测）

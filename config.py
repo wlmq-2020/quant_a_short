@@ -150,9 +150,9 @@ class Config:
     KDJ_M2 = 3
 
     # RSI参数 (优化后)
-    RSI_PERIOD = 14
+    RSI_PERIOD = 7
     RSI_OVERBOUGHT = 70
-    RSI_OVERSOLD = 30
+    RSI_OVERSOLD = 35
 
     # 布林带参数 (优化后)
     BOLLINGER_PERIOD = 20
@@ -174,7 +174,7 @@ class Config:
     STOP_LOSS_RATIO = 0.05
 
     # 止盈比例（0-1）
-    TAKE_PROFIT_RATIO = 0.15
+    TAKE_PROFIT_RATIO = 0.2
 
     # ========== 模块开关配置 ==========
     # 注意：所有功能通过 main.py 命令行参数控制
@@ -186,6 +186,62 @@ class Config:
 
     # 日志文件保留天数
     LOG_RETENTION_DAYS = 7
+    # ========== 所有策略最优参数配置 ==========
+    # 优化完成时间: 2026-04-01 12:39
+    OPTIMIZED_STRATEGIES = {   'bollinger': {   'bb_period': 20,
+                     'bb_std': 2.5,
+                     'stop_loss_ratio': 0.05,
+                     'take_profit_ratio': 0.2},
+    'ema_cross': {   'ema_fast': 8,
+                     'ema_slow': 20,
+                     'stop_loss_ratio': 0.05,
+                     'take_profit_ratio': 0.15},
+    'kdj_oversold': {   'kdj_m1': 3,
+                        'kdj_m2': 3,
+                        'kdj_n': 9,
+                        'overbought_threshold': 85,
+                        'oversold_threshold': 25,
+                        'stop_loss_ratio': 0.08,
+                        'take_profit_ratio': 0.15},
+    'macd_zero_axis': {   'macd_fast': 16,
+                          'macd_signal': 9,
+                          'macd_slow': 20,
+                          'stop_loss_ratio': 0.08,
+                          'take_profit_ratio': 0.2},
+    'momentum': {   'momentum_period': 10,
+                    'momentum_threshold': 0.02,
+                    'stop_loss_ratio': 0.03,
+                    'take_profit_ratio': 0.2},
+    'rsi': {   'rsi_overbought': 70,
+               'rsi_oversold': 35,
+               'rsi_period': 7,
+               'stop_loss_ratio': 0.03,
+               'take_profit_ratio': 0.2},
+    'sar': {'sar_af': 0.015, 'sar_max_af': 0.15, 'stop_loss_ratio': 0.03, 'take_profit_ratio': 0.2},
+    'williams_r': {   'overbought': -20,
+                      'oversold': -80,
+                      'stop_loss_ratio': 0.03,
+                      'take_profit_ratio': 0.2,
+                      'williams_period': 18}}
+
+    @classmethod
+    def get_optimized_params(cls, strategy_type):
+        """
+        获取指定策略的最优参数
+        
+        参数:
+            strategy_type: 策略类型
+            
+        返回:
+            dict: 最优参数字典
+        """
+        return cls.OPTIMIZED_STRATEGIES.get(strategy_type, {})
+
+    @classmethod
+    def get_all_optimized_strategies(cls):
+        """获取所有已优化的策略列表"""
+        return list(cls.OPTIMIZED_STRATEGIES.keys())
+
 
     @classmethod
     def ensure_dirs(cls):
