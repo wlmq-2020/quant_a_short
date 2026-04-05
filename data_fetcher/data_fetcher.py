@@ -290,8 +290,8 @@ class AStockDataFetcher:
             self.logger.info(f"处理股票: {stock_code}")
             df = self.fetch_stock_data(
                 stock_code,
-                self.config.START_DATE,
-                self.config.END_DATE,
+                self.config.get_start_date(),
+                self.config.get_end_date(),
                 self.config.KLINE_PERIOD
             )
             if df is not None:
@@ -325,7 +325,7 @@ class AStockDataFetcher:
 
         stock_list = self.config.get_stock_list()
         print(f"\n开始下载 {len(stock_list)} 只股票数据...")
-        print(f"时间范围: {self.config.START_DATE} 至 {self.config.END_DATE}")
+        print(f"时间范围: {self.config.get_start_date()} 至 {self.config.get_end_date()}")
         print("-" * 80)
 
         success_count = 0

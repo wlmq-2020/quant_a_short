@@ -3,5 +3,6 @@
 日志模块
 """
 from .logger import GlobalLogger
+from .progress_logger import ProgressLogger
 
-__all__ = ["GlobalLogger"]
+__all__ = ["GlobalLogger", "ProgressLogger"]

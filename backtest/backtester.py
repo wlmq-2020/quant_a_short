@@ -468,6 +468,7 @@ class BacktraderBacktester:
             cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
             cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
             cerebro.addanalyzer(bt.analyzers.VWR, _name='vwr')
+            cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='timereturn', timeframe=bt.TimeFrame.Days)
 
             # 7. 运行回测
             results = cerebro.run()
@@ -603,24 +604,58 @@ class BacktraderBacktester:
         return result
 
     def _create_portfolio_data(self, strat, df):
-        """创建投资组合数据"""
-        # 简化版本：创建基本的权益曲线
+        """创建投资组合数据 - 从TimeReturn分析器提取资金曲线"""
         portfolio_df = pd.DataFrame({
             'date': df.index if hasattr(df, 'index') else range(len(df)),
             'equity': [self.initial_capital] * len(df)
         })
 
+        # 尝试从TimeReturn分析器提取资金曲线
+        try:
+            if hasattr(strat.analyzers, 'timereturn'):
+                timereturn_analyzer = strat.analyzers.timereturn.get_analysis()
+                if timereturn_analyzer:
+                    # 重建资金曲线
+                    equity_values = []
+                    current_equity = self.initial_capital
+                    for i, ret in enumerate(timereturn_analyzer.values()):
+                        if i == 0:
+                            equity_values.append(current_equity)
+                        current_equity = current_equity * (1 + ret)
+                        equity_values.append(current_equity)
+
+                    # 对齐数据长度
+                    if len(equity_values) > 0:
+                        min_len = min(len(portfolio_df), len(equity_values))
+                        portfolio_df = portfolio_df.iloc[:min_len].copy()
+                        portfolio_df['equity'] = equity_values[:min_len]
+        except Exception:
+            # 如果提取失败，返回默认值
+            pass
+
         return portfolio_df
 
     def _extract_trades(self, strat, stock_code):
-        """提取交易记录"""
+        """提取交易记录 - 从TradeAnalyzer分析器提取详细交易"""
         trades_list = []
 
         # 从分析器中提取交易
         trades_analyzer = strat.analyzers.trades.get_analysis()
 
         if 'total' in trades_analyzer and trades_analyzer['total']['total'] > 0:
-            pass
+            # 尝试提取每笔交易
+            if 'trades' in trades_analyzer:
+                for trade_id, trade_data in trades_analyzer['trades'].items():
+                    if isinstance(trade_data, dict):
+                        trade_info = {
+                            'stock_code': stock_code,
+                            'trade_id': trade_id,
+                            'pnl': trade_data.get('pnl', {}).get('net', 0),
+                            'pnl_pct': trade_data.get('pnl', {}).get('pct', 0),
+                            'is_win': trade_data.get('pnl', {}).get('net', 0) > 0,
+                            'bars_in_trade': trade_data.get('barlen', 0)
+                        }
+                        trades_list.append(trade_info)
 
         return trades_list
 
@@ -660,7 +695,7 @@ class BacktraderBacktester:
         ========================================
         股票代码: {stock_code}
         策略类型: {self.config.STRATEGY_TYPE}
-        回测期间: {self.config.START_DATE} 至 {self.config.END_DATE}
+        回测期间: {self.config.get_start_date()} 至 {self.config.get_end_date()}
 
         绩效指标:
         ----------------------------------------
@@ -738,6 +773,7 @@ class BacktraderBacktester:
             cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
             cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
             cerebro.addanalyzer(bt.analyzers.VWR, _name='vwr')
+            cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='timereturn', timeframe=bt.TimeFrame.Days)
 
             # 7. 运行回测
             results = cerebro.run()

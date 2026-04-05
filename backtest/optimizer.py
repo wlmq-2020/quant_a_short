@@ -14,6 +14,7 @@ import copy
 import json
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from logger.progress_logger import ProgressLogger
 
 
 def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param_set):
@@ -295,6 +296,10 @@ class StrategyParameterOptimizer:
         max_threads = min(multiprocessing.cpu_count() * 2, 8)
         print(f"使用 {max_threads} 个线程并发优化策略")
 
+        # 初始化进度日志
+        progress_logger = ProgressLogger(self.config.LOG_DIR, "optimize_all")
+        progress_logger.info(f"开始优化 {len(strategy_types)} 个策略", {"max_threads": max_threads})
+
         all_results = {}
 
         # 直接在线程中调用 optimize_strategy 方法
@@ -318,11 +323,30 @@ class StrategyParameterOptimizer:
                     if result:
                         all_results[strategy_type] = result
                         self.optimization_results[strategy_type] = result
+                        avg_return = result.get('best_result', {}).get('avg_return', 0)
+                        progress_logger.update(
+                            completed, len(strategy_types),
+                            f"策略 {strategy_type} 完成",
+                            {"strategy": strategy_type, "return": avg_return}
+                        )
+                    else:
+                        progress_logger.update(
+                            completed, len(strategy_types),
+                            f"策略 {strategy_type} 无结果",
+                            {"strategy": strategy_type}
+                        )
                     print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 完成")
                 except Exception as e:
+                    progress_logger.error(
+                        f"策略 {strategy_type} 失败",
+                        {"strategy": strategy_type, "error": str(e)}
+                    )
                     print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 失败: {str(e)}")
                     import traceback
                     traceback.print_exc()
+
+        progress_logger.finish(True, f"优化完成，成功 {len(all_results)}/{len(strategy_types)} 个策略", {"total": len(strategy_types), "success": len(all_results)})
+        print(f"\n进度日志已保存到: {progress_logger.get_log_file()}")
 
         return all_results
 

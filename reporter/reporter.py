@@ -45,7 +45,7 @@ class QuantReporter:
 
         # 配置摘要
         report_lines.append("## 配置摘要\n")
-        report_lines.append(f"- 回测期间: {self.config.START_DATE} ~ {self.config.END_DATE}")
+        report_lines.append(f"- 回测期间: {self.config.get_start_date()} ~ {self.config.get_end_date()}")
         report_lines.append(f"- 策略类型: {self.config.STRATEGY_TYPE}")
         report_lines.append(f"- 初始资金: {self.config.INITIAL_CAPITAL:.0f} 元")
         report_lines.append(f"- 仓位比例: {self.config.POSITION_RATIO*100:.0f}%")
@@ -141,7 +141,7 @@ class QuantReporter:
 
         # 配置摘要
         report_lines.append("## 配置摘要\n")
-        report_lines.append(f"- 回测期间: {self.config.START_DATE} ~ {self.config.END_DATE}")
+        report_lines.append(f"- 回测期间: {self.config.get_start_date()} ~ {self.config.get_end_date()}")
         report_lines.append(f"- 初始资金: {self.config.INITIAL_CAPITAL:.0f} 元")
         report_lines.append(f"- 仓位比例: {self.config.POSITION_RATIO*100:.0f}%")
         report_lines.append(f"- 止损: {self.config.STOP_LOSS_RATIO*100:.1f}%, 止盈: {self.config.TAKE_PROFIT_RATIO*100:.1f}%\n")

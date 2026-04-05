@@ -5,6 +5,7 @@
 """
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
 
 
 class Config:
@@ -20,6 +21,21 @@ class Config:
     REPORTS_DIR = PROJECT_ROOT / "reports"
     TEMP_DIR = PROJECT_ROOT / "temp"
     CONFIG_DIR = PROJECT_ROOT / "config"
+
+    # ========== 回测时间范围（最近3年） ==========
+    # 硬编码日期作为后备
+    START_DATE = "20230329"
+    END_DATE = "20260329"
+
+    @classmethod
+    def get_start_date(cls):
+        """获取回测开始日期（3年前）"""
+        return (datetime.now() - timedelta(days=3*365)).strftime("%Y%m%d")
+
+    @classmethod
+    def get_end_date(cls):
+        """获取回测结束日期（昨天）"""
+        return (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
 
     # ========== 股票配置 ==========
     # 上证50成分股完整列表（50只）

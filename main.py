@@ -66,7 +66,7 @@ def check_project_structure():
         print("  - strategy/       - 放策略相关代码")
         print("  - backtest/       - 放回测相关代码")
         print("  - data_fetcher/   - 放数据处理相关代码")
-        print("  - logger/         - 放日志相关代码")
+        print("  - logger/         - 放日志和进度相关代码")
         print("  - config.py       - 配置文件")
         print("  - main.py         - 主入口（同级只允许这一个文件+config.py）")
         print("=" * 80)
@@ -425,6 +425,14 @@ def fetch_all_stock_data():
     return data_fetcher.fetch_all_with_print()
 
 
+def show_progress(task_name=None):
+    """显示进度日志"""
+    from logger.progress_logger import ProgressLogger
+    from config import Config
+    Config.ensure_dirs()
+    ProgressLogger.print_progress_summary(Config.LOG_DIR, task_name)
+
+
 if __name__ == "__main__":
     # 【强制】检查项目结构规则
     check_project_structure()
@@ -447,6 +455,11 @@ if __name__ == "__main__":
             # 优化单个策略
             success = run_optimization(sys.argv[2])
             sys.exit(0 if success else 1)
+        elif sys.argv[1] == "--progress":
+            # 查看进度
+            task_name = sys.argv[2] if len(sys.argv) > 2 else None
+            show_progress(task_name)
+            sys.exit(0)
 
     # 运行完整系统（单策略回测）
     engine = QuantMainEngine()
