@@ -41,7 +41,7 @@ def check_project_structure():
     files_in_main_dir = list(main_dir.glob("*"))
 
     # 允许的文件和目录
-    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', 'config', '__pycache__', '.git'}
+    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config'}
     allowed_files = {'main.py', 'config.py', 'README.md', 'requirements.txt', '.gitignore'}
 
     invalid_files = []
@@ -345,8 +345,8 @@ def run_optimization(strategy_type=None):
         comparator = StrategyComparator(Config, logger)
 
         # 确定要优化的策略列表
-        from strategy.param_space import get_all_strategy_types
-        target_strategies = [strategy_type] if strategy_type else get_all_strategy_types()
+        from strategy.param_space import get_all_strategy_types, get_all_strategy_types_including_optimized
+        target_strategies = [strategy_type] if strategy_type else get_all_strategy_types_including_optimized()
 
         # 只运行目标策略的基准回测
         baseline_results = comparator.run_all_strategies_backtest(stock_data, target_strategies)
@@ -412,6 +412,31 @@ def run_optimization(strategy_type=None):
         return False
 
 
+def update_all_stock_data():
+    """更新所有股票数据 - 调用data_fetcher模块"""
+    Config.ensure_dirs()
+    from logger.logger import GlobalLogger
+    logger = GlobalLogger(
+        log_dir=Config.LOG_DIR,
+        log_level=Config.LOG_LEVEL,
+        retention_days=Config.LOG_RETENTION_DAYS
+    )
+    data_fetcher = AStockDataFetcher(Config, logger)
+    results = data_fetcher.update_all_stocks()
+    
+    # 打印更新统计
+    print("=" * 80)
+    print("数据更新完成")
+    print("=" * 80)
+    print(f"总计: {results['total']} 只")
+    print(f"更新: {results['updated']} 只")
+    print(f"跳过: {results['skipped']} 只")
+    print(f"失败: {results['failed']} 只")
+    print("=" * 80)
+    
+    return results['failed'] == 0
+
+
 def fetch_all_stock_data():
     """下载所有股票数据 - 调用data_fetcher模块"""
     Config.ensure_dirs()
@@ -442,6 +467,10 @@ if __name__ == "__main__":
         if sys.argv[1] == "--fetch-data":
             # 下载所有股票数据
             success = fetch_all_stock_data()
+            sys.exit(0 if success else 1)
+        elif sys.argv[1] == "--update-data":
+            # 更新所有股票数据（增量更新）
+            success = update_all_stock_data()
             sys.exit(0 if success else 1)
         elif sys.argv[1] == "--compare-strategies":
             # 循环测试所有策略并生成对比报告
