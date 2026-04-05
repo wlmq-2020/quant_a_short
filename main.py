@@ -41,7 +41,7 @@ def check_project_structure():
     files_in_main_dir = list(main_dir.glob("*"))
 
     # 允许的文件和目录
-    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config'}
+    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config', 'scripts'}
     allowed_files = {'main.py', 'config.py', 'README.md', 'requirements.txt', '.gitignore'}
 
     invalid_files = []

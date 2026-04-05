@@ -5,6 +5,11 @@
 - 策略级: ThreadPoolExecutor (8线程) - Windows下避免多进程死锁
 - 参数组合级: ThreadPoolExecutor (16线程)
 - 股票级: ThreadPoolExecutor (16线程) - 已在backtester.py中实现
+
+【强制规则】
+每次执行优化时，必须先读取 temp/best_strategy_params.json 历史最优记录
+只记录和更新历史最高收益的参数，只有当次批跑收益 > 历史最高收益时才更新
+永远保留历史最高收益的参数，不允许随便替换，否则所有批跑都是无意义的
 """
 import pandas as pd
 import numpy as np
@@ -78,6 +83,22 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
         (min(20, calmar_ratio) / 10) * 0.15
     )
 
+    # 收集股票级别信息
+    stock_returns = {}
+    for stock_code, result in results.items():
+        if result:
+            stock_returns[stock_code] = result['metrics']['total_return_pct']
+    
+    # 计算最高/最低收益
+    if stock_returns:
+        max_return = max(stock_returns.values())
+        min_return = min(stock_returns.values())
+        best_stock = max(stock_returns.items(), key=lambda x: x[1])[0]
+        worst_stock = min(stock_returns.items(), key=lambda x: x[1])[0]
+    else:
+        max_return = min_return = 0
+        best_stock = worst_stock = ''
+    
     return {
         'params': param_set,
         'avg_return': avg_return,
@@ -88,6 +109,11 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
         'calmar_ratio': calmar_ratio,
         'composite_score': composite_score,
         'stock_count': len(all_returns),
+        'max_return': max_return,
+        'min_return': min_return,
+        'best_stock': best_stock,
+        'worst_stock': worst_stock,
+        'stock_returns': stock_returns,
     }
 
 
@@ -285,8 +311,7 @@ class StrategyParameterOptimizer:
 
         if strategy_types is None:
             # 默认只优化普通策略，不包含优化策略
-            from strategy.param_space import get_all_strategy_types
-            strategy_types = get_all_strategy_types()
+            strategy_types = get_all_strategy_types_including_optimized()
 
         print("=" * 80)
         print(f"开始优化所有策略 ({len(strategy_types)} 个) - 8线程并发")
@@ -473,9 +498,20 @@ class StrategyParameterOptimizer:
             # 如果本次收益更高，更新历史最优
             if current_return > hist_return:
                 improvement = current_return - hist_return if hist_return != -float('inf') else current_return
+                # 获取股票级别信息
+                best_result = result.get('best_result', {})
+                max_return = best_result.get('max_return', 0)
+                min_return = best_result.get('min_return', 0)
+                best_stock = best_result.get('best_stock', '')
+                worst_stock = best_result.get('worst_stock', '')
+                
                 historical_best[strategy_type] = {
                     'avg_return': current_return,
                     'avg_sharpe': current_sharpe,
+                    'max_return': max_return,
+                    'min_return': min_return,
+                    'best_stock': best_stock,
+                    'worst_stock': worst_stock,
                     'best_params': current_params,
                     'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
@@ -489,9 +525,20 @@ class StrategyParameterOptimizer:
                     self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
 
             elif strategy_type not in historical_best:
+                # 获取股票级别信息
+                best_result = result.get('best_result', {})
+                max_return = best_result.get('max_return', 0)
+                min_return = best_result.get('min_return', 0)
+                best_stock = best_result.get('best_stock', '')
+                worst_stock = best_result.get('worst_stock', '')
+                
                 historical_best[strategy_type] = {
                     'avg_return': current_return,
                     'avg_sharpe': current_sharpe,
+                    'max_return': max_return,
+                    'min_return': min_return,
+                    'best_stock': best_stock,
+                    'worst_stock': worst_stock,
                     'best_params': current_params,
                     'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
@@ -599,10 +646,18 @@ class StrategyParameterOptimizer:
                     print(f"  更新参数: {config_name} = {value}")
 
         # 更新默认策略类型
-        basic_strategies = ['macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-                           'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
-                           'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
-                           'sar', 'keltner', 'triple_screen']
+        # 所有36个策略都可以更新到STRATEGY_TYPE（包括基础策略和优化策略）
+        basic_strategies = [
+            'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
+            'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
+            'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
+            'sar', 'keltner', 'triple_screen',
+            'macd_kdj_fibonacci', 'boll_rsi_optimized', 'kdj_rsi_optimized',
+            'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
+            'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
+            'triple_ema', 'kdj_macd_resonance', 'rsi_atr_adaptive',
+            'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite'
+        ]
 
         if top_strategy in basic_strategies:
             pattern = r"(\s+)STRATEGY_TYPE\s*=\s*['\"][^'\"]+['\"]"
@@ -612,6 +667,68 @@ class StrategyParameterOptimizer:
                 content = new_content
                 updated = True
                 print(f"  更新默认策略: STRATEGY_TYPE = {top_strategy}")
+
+        # 更新 OPTIMIZED_STRATEGIES 字典：用历史最优参数更新所有策略
+        print("  [更新 OPTIMIZED_STRATEGIES]")
+        try:
+            # 读取当前 config.py
+            import ast
+            config_content = content
+
+            # 找到 OPTIMIZED_STRATEGIES 字典
+            start_marker = "OPTIMIZED_STRATEGIES = {"
+            end_marker = "    }"
+
+            if start_marker not in config_content:
+                print("    ⚠️  未找到 OPTIMIZED_STRATEGIES 标记，跳过更新")
+            else:
+                start_idx = config_content.find(start_marker)
+
+                # 找到字典结束位置
+                brace_count = 0
+                end_idx = start_idx + len(start_marker)
+                for i, char in enumerate(config_content[start_idx + len(start_marker):]):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        if brace_count == 0:
+                            end_idx = start_idx + len(start_marker) + i + 1
+                            break
+                        else:
+                            brace_count -= 1
+
+                if end_idx <= start_idx + len(start_marker):
+                    print("    ⚠️  无法解析 OPTIMIZED_STRATEGIES 字典，跳过更新")
+                else:
+                    # 提取原字典
+                    old_dict_str = config_content[start_idx:end_idx]
+                    old_dict_start = old_dict_str.find('{')
+                    old_dict_end = old_dict_str.rfind('}') + 1
+                    old_dict_content = old_dict_str[old_dict_start:old_dict_end]
+
+                    # 解析原字典
+                    old_dict = ast.literal_eval(old_dict_content)
+
+                    # 用历史最优参数更新：只更新有历史最优记录的策略
+                    updated_dict = old_dict.copy()
+                    update_count = 0
+                    for strategy_name, best_data in historical_best.items():
+                        if 'best_params' in best_data:
+                            updated_dict[strategy_name] = best_data['best_params']
+                            update_count += 1
+
+                    # 生成新字典字符串
+                    import pprint
+                    new_dict_str = "OPTIMIZED_STRATEGIES = " + pprint.pformat(updated_dict, indent=4, width=100)
+
+                    # 替换
+                    config_content = config_content[:start_idx] + new_dict_str + config_content[end_idx:]
+                    content = config_content
+                    updated = True
+                    print(f"    ✅ OPTIMIZED_STRATEGIES 已更新: {update_count} 个策略参数")
+
+        except Exception as e:
+            print(f"    ⚠️  更新 OPTIMIZED_STRATEGIES 失败: {e}")
 
         if updated:
             with open(config_path, 'w', encoding='utf-8') as f:

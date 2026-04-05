@@ -804,7 +804,7 @@ class BacktraderBacktester:
             dict: 回测结果字典 {stock_code: result}
         """
         if max_workers is None:
-            max_workers = min(multiprocessing.cpu_count(), 16)
+            max_workers = min(multiprocessing.cpu_count(), 4)
 
         results = {}
         total = len(stock_data)
@@ -883,7 +883,7 @@ class StrategyComparator:
         all_strategy_results = {}
         strategy_timings = {}
 
-        max_processes = min(multiprocessing.cpu_count(), 8)
+        max_processes = min(multiprocessing.cpu_count(), 2)
         print(f"  使用 {max_processes} 个进程并发执行策略...")
 
         with ProcessPoolExecutor(max_workers=max_processes) as executor:

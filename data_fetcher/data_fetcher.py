@@ -57,7 +57,7 @@ class AStockDataFetcher:
         save_path = self.save_dir / f"{stock_code}_{period}.csv"
         if save_path.exists():
             self.logger.info(f"本地数据已存在，跳过下载: {stock_code}")
-            return self._load_data(stock_code, period)
+            return self.load_data(stock_code, period)
 
         df = None
         last_error = None
@@ -410,7 +410,7 @@ class AStockDataFetcher:
         finally:
             bs.logout()
 
-    def _load_data(self, stock_code, period='daily'):
+    def load_data(self, stock_code, period='daily'):
         """从本地加载数据"""
         save_path = self.save_dir / f"{stock_code}_{period}.csv"
         if save_path.exists():
