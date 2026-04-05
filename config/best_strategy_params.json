@@ -1,7 +1,7 @@
 {
   "macd_kdj": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 8,
       "macd_slow": 20,
@@ -15,8 +15,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "rsi": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "rsi_period": 7,
       "rsi_overbought": 65,
@@ -27,8 +27,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "bollinger": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "bb_period": 15,
       "bb_std": 2.0,
@@ -38,8 +38,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "ma_cross": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ma_fast": 5,
       "ma_slow": 20,
@@ -49,8 +49,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "kdj_oversold": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "kdj_n": 6,
       "kdj_m1": 2,
@@ -63,8 +63,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "macd_zero_axis": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 12,
       "macd_slow": 20,
@@ -75,8 +75,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "triple_screen": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "trend_period": 20,
       "stoch_period": 14,
@@ -88,8 +88,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "turtle_trading": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "entry_period": 15,
       "exit_period": 10,
@@ -100,8 +100,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "momentum": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "momentum_period": 7,
       "momentum_threshold": 0.02,
@@ -111,8 +111,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "mean_reversion": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ma_period": 15,
       "std_threshold": 1.2,
@@ -122,8 +122,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "donchian": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "donchian_period": 15,
       "exit_period": 10,
@@ -133,8 +133,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "williams_r": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "williams_period": 14,
       "oversold": -80,
@@ -145,8 +145,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "cci": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "cci_period": 15,
       "cci_oversold": -100,
@@ -157,8 +157,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "ema_cross": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ema_fast": 8,
       "ema_slow": 20,
@@ -168,8 +168,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "volume_spread": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ma_short": 3,
       "ma_long": 15,
@@ -181,8 +181,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "sar": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "sar_af": 0.015,
       "sar_max_af": 0.15,
@@ -192,8 +192,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "keltner": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "kc_period": 15,
       "kc_multiplier": 2.0,
@@ -203,8 +203,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "macd_kdj_fibonacci": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 8,
       "macd_slow": 21,
@@ -219,8 +219,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "boll_rsi_optimized": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "bb_period": 15,
       "bb_std": 1.8,
@@ -234,8 +234,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "kdj_rsi_optimized": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "kdj_n": 9,
       "kdj_m1": 3,
@@ -252,8 +252,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "macd_with_atr": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 8,
       "macd_slow": 20,
@@ -268,8 +268,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "rsi_with_trend": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "rsi_period": 10,
       "rsi_overbought": 65,
@@ -284,8 +284,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "turtle_with_filter": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "entry_period": 15,
       "exit_period": 8,
@@ -299,8 +299,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "ema_rsi": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ema_short": 15,
       "ema_long": 50,
@@ -314,8 +314,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "dual_macd": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 10,
       "macd_slow": 24,
@@ -336,8 +336,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "macd": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 10,
       "macd_slow": 24,
@@ -349,8 +349,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "boll_rsi": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "boll_period": 15,
       "bb_std": 1.8,
@@ -365,8 +365,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "turtle_breakout": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "entry_period": 15,
       "exit_period": 8,
@@ -380,8 +380,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "triple_ema": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ema_short": 5,
       "ema_mid": 20,
@@ -395,8 +395,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "kdj_macd_resonance": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "kdj_n": 7,
       "kdj_m1": 2,
@@ -413,8 +413,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "rsi_atr_adaptive": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "rsi_period": 12,
       "rsi_oversold": 28,
@@ -434,8 +434,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "macd_boll": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "macd_fast": 10,
       "macd_slow": 24,
@@ -449,8 +449,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "kdj_rsi": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "kdj_n": 7,
       "kdj_m1": 2,
@@ -467,8 +467,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "ma_volume": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ma_short": 8,
       "ma_long": 25,
@@ -482,8 +482,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "atr_stop": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "breakout_period": 15,
       "atr_period": 12,
@@ -497,8 +497,8 @@
     "updated_at": "2026-04-06 00:13:07"
   },
   "composite": {
-    "avg_return": 0.0,
-    "avg_sharpe": 0.0,
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
       "ema_short": 18,
       "ema_long": 55,
