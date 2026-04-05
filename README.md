@@ -7,7 +7,7 @@
 ```
 quant_a_short/
 ├── main.py                 # 全局主入口，一键启动全流程
-├── config.py               # 全局配置文件
+├── config                  # 全局配置文件
 ├── requirements.txt        # 依赖包列表
 ├── logger/                 # 全局日志模块
 ├── data_fetcher/           # 数据下载模块
