@@ -828,13 +828,9 @@ class StrategyComparator:
         from datetime import datetime
 
         if strategy_types is None:
-            # 默认只包含普通策略，优化策略需要明确指定
-            strategy_types = [
-                'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-                'macd_zero_axis', 'triple_screen', 'turtle_trading', 'momentum',
-                'mean_reversion', 'donchian', 'williams_r', 'cci', 'ema_cross',
-                'volume_spread', 'sar', 'keltner'
-            ]
+            # 默认使用所有36个策略（基础策略 + 优化策略）
+            from strategy.strategy import get_all_strategy_types
+            strategy_types = get_all_strategy_types()
 
         print("\n[2/4] 开始测试策略...")
 
