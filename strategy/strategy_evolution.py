@@ -18,8 +18,6 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 from collections import defaultdict
 import json
-import ast
-import shutil
 
 from config import Config
 from logger.logger import GlobalLogger
@@ -264,10 +262,16 @@ class StrategyEvolutionSystem:
         self._save_evolution_report(metrics, composite_scores, distribution, 
                                       thresholds, keep_strategies, eliminate_strategies)
         
-        # 8. 自动更新 config.py（默认开启）
+        # 8. 显示更新建议（不再自动修改 config.py）
         if auto_update_config:
-            self.logger.info("\n--- 自动更新 config.py ---")
-            self._auto_update_config(keep_strategies, eliminate_strategies)
+            self.logger.info("\n--- config.py 更新建议 ---")
+            self.logger.info(f"  建议在 config.py 中保留以下策略:")
+            for i, s in enumerate(keep_strategies, 1):
+                self.logger.info(f"    {i:2d}. {s}")
+            self.logger.info(f"\n  建议移除以下策略:")
+            for i, s in enumerate(eliminate_strategies, 1):
+                self.logger.info(f"    {i:2d}. {s}")
+            self.logger.info(f"\n  请手动修改 config/best_strategy_params.json 文件")
         
         self.logger.info("="*80)
         self.logger.info("✅ 策略进化系统完成！")
@@ -312,90 +316,18 @@ class StrategyEvolutionSystem:
         with open(latest_path, 'w', encoding='utf-8') as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
     
-    def _auto_update_config(self, keep_strategies, eliminate_strategies):
-        """自动更新 config.py - 不依赖 astor"""
-        config_path = PROJECT_ROOT / "config.py"
-        
-        backup_path = config_path.parent / f"{config_path.name}.backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        with open(config_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        with open(backup_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        self.logger.info(f"  原文件已备份: {backup_path}")
-        
-        try:
-            # ===== 不依赖 astor 的实现方式 =====
-            # 简单的字符串替换：找到 OPTIMIZED_STRATEGIES 块，重新生成
-            
-            # 先读取当前 OPTIMIZED_STRATEGIES 字典
-            # 通过正则匹配或简单字符串分析找到字典范围
-            start_marker = "OPTIMIZED_STRATEGIES = {"
-            end_marker = "    }"
-            
-            if start_marker not in content:
-                self.logger.warning(f"  ⚠️  未找到 OPTIMIZED_STRATEGIES 标记")
-                self.logger.info(f"     请手动更新 config.py")
-                return
-            
-            start_idx = content.find(start_marker)
-            
-            # 找到字典的结束位置（找到匹配的 }）
-            brace_count = 0
-            end_idx = start_idx + len(start_marker)
-            
-            for i, char in enumerate(content[start_idx + len(start_marker):]):
-                if char == '{':
-                    brace_count += 1
-                elif char == '}':
-                    if brace_count == 0:
-                        end_idx = start_idx + len(start_marker) + i + 1
-                        break
-                    else:
-                        brace_count -= 1
-            
-            if end_idx <= start_idx + len(start_marker):
-                self.logger.warning(f"  ⚠️  无法解析 OPTIMIZED_STRATEGIES 字典")
-                self.logger.info(f"     请手动更新 config.py")
-                return
-            
-            # 提取原字典部分
-            old_dict_str = content[start_idx:end_idx]
-            
-            # 解析原字典
-            old_dict_start = old_dict_str.find("{")
-            old_dict_end = old_dict_str.rfind("}") + 1
-            old_dict_content = old_dict_str[old_dict_start:old_dict_end]
-            
-            # 用 ast 安全解析
-            old_dict = ast.literal_eval(old_dict_content)
-            
-            # 生成新字典（只保留需要的策略）
-            new_dict = {}
-            for key in keep_strategies:
-                if key in old_dict:
-                    new_dict[key] = old_dict[key]
-            
-            # 生成新字典字符串
-            import pprint
-            new_dict_str = "OPTIMIZED_STRATEGIES = " + pprint.pformat(new_dict, indent=4, width=100)
-            
-            # 替换原内容
-            new_content = content[:start_idx] + new_dict_str + content[end_idx:]
-            
-            # 写回文件
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            
-            self.logger.info(f"  ✅ config.py 已自动更新！")
-            self.logger.info(f"     保留策略: {len(keep_strategies)} 个")
-            self.logger.info(f"     淘汰策略: {len(eliminate_strategies)} 个")
-        
-        except Exception as e:
-            self.logger.error(f"  ❌ 更新 config.py 失败: {e}")
-            self.logger.info(f"     请手动更新 config.py，已备份: {backup_path}")
+    def _suggest_config_update(self, keep_strategies, eliminate_strategies):
+        """
+        建议如何更新配置文件（不再自动修改）
+
+        参数:
+            keep_strategies: 建议保留的策略列表
+            eliminate_strategies: 建议移除的策略列表
+        """
+        self.logger.info(f"\n  💡 配置更新建议:")
+        self.logger.info(f"     请手动编辑 config/best_strategy_params.json")
+        self.logger.info(f"     保留策略: {keep_strategies}")
+        self.logger.info(f"     移除策略: {eliminate_strategies}")
 
 
 if __name__ == '__main__':
@@ -406,7 +338,7 @@ if __name__ == '__main__':
     print("  - 多指标综合评分（夏普30% + 卡尔马25% + 收益15% + 胜率10% + 盈亏比10%）")
     print("  - 统计分布分析（25%/75%分位数自动阈值）")
     print("  - 策略稳定性评估（波动率、下行风险、偏度、峰度）")
-    print("  - 自动更新 config.py（不依赖 astor）")
+    print("  - 提供配置更新建议（不再自动修改源代码）")
     print("\n使用：")
     print("  from strategy.strategy_evolution import StrategyEvolutionSystem")
     print("  evolution = StrategyEvolutionSystem()")

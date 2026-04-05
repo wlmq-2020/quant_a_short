@@ -6,235 +6,9 @@
 from itertools import product
 
 
-# 优化策略的参数空间定义
-OPTIMIZED_PARAM_SPACES = {
-    'macd_kdj_fibonacci': {
-        'macd_fast': [8, 12, 16],
-        'macd_slow': [21, 26, 34],
-        'macd_signal': [5, 8, 13],
-        'kdj_n': [6, 9, 14],
-        'kdj_m1': [2, 3, 5],
-        'kdj_m2': [2, 3, 5],
-        'stop_loss_ratio': [0.05, 0.0618, 0.08],
-        'take_profit_ratio': [0.12, 0.1618, 0.20],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'boll_rsi_optimized': {
-        'bb_period': [15, 18, 20],
-        'bb_std': [1.8, 2.0, 2.2],
-        'rsi_period': [14, 16, 18],
-        'rsi_overbought': [65, 67, 70],
-        'rsi_oversold': [30, 33, 35],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.88],
-    },
-    'kdj_rsi_optimized': {
-        'kdj_n': [9, 10, 14],
-        'kdj_m1': [3, 4, 5],
-        'kdj_m2': [3, 4, 5],
-        'rsi_period': [14, 16, 18],
-        'rsi_overbought': [65, 68, 70],
-        'rsi_oversold': [30, 32, 35],
-        'k_oversold': [20, 22, 25],
-        'k_overbought': [75, 78, 80],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'macd_with_atr': {
-        'macd_fast': [8, 12, 16],
-        'macd_slow': [20, 26, 32],
-        'macd_signal': [6, 9, 12],
-        'atr_period': [10, 14, 20],
-        'atr_multiplier': [1.5, 2.0, 2.5],
-        'volume_ma_period': [15, 20, 25],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.75, 0.8, 0.85],
-    },
-    'rsi_with_trend': {
-        'rsi_period': [10, 14, 18],
-        'rsi_overbought': [65, 70, 75],
-        'rsi_oversold': [25, 30, 35],
-        'ma_period': [15, 20, 25],
-        'bb_period': [15, 20, 25],
-        'bb_std': [1.8, 2.0, 2.2],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.75, 0.8, 0.85],
-    },
-    'turtle_with_filter': {
-        'entry_period': [15, 20, 25],
-        'exit_period': [8, 10, 12],
-        'atr_period': [10, 14, 20],
-        'atr_multiplier': [1.5, 2.0, 2.5],
-        'volume_ma_period': [15, 20, 25],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.75, 0.8, 0.85],
-    },
-    # 新增的13个策略参数空间
-    'ema_rsi': {
-        'ema_short': [15, 20, 25],
-        'ema_long': [50, 60, 70],
-        'rsi_period': [12, 14, 16],
-        'rsi_overbought': [65, 70, 75],
-        'rsi_oversold': [25, 30, 35],
-        'stop_loss_ratio': [0.06, 0.08, 0.10],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.75, 0.8, 0.85],
-    },
-    'dual_macd': {
-        'macd_fast': [10, 12, 14],
-        'macd_slow': [24, 26, 28],
-        'macd_signal': [8, 9, 10],
-        'conf_fast': [4, 5, 6],
-        'conf_slow': [11, 13, 15],
-        'conf_signal': [5, 6, 7],
-        'atr_period': [12, 14, 16],
-        'atr_trail_n': [2.0, 2.5, 3.0],
-        'atr_trail_hi': [1.5, 1.8, 2.0],
-        'atr_trail_pk': [1.0, 1.2, 1.5],
-        'profit_mid': [0.10, 0.12, 0.15],
-        'profit_pk': [0.25, 0.30, 0.35],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'macd': {
-        'macd_fast': [10, 12, 14],
-        'macd_slow': [24, 26, 28],
-        'macd_signal': [8, 9, 10],
-        'stop_loss_ratio': [0.06, 0.08, 0.10],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.75, 0.8, 0.85],
-    },
-    'boll_rsi': {
-        'boll_period': [15, 20, 25],
-        'bb_std': [1.8, 2.0, 2.2],
-        'rsi_period': [12, 14, 16],
-        'rsi_oversold': [30, 35, 40],
-        'rsi_overbought': [65, 70, 75],
-        'stop_loss_mult': [0.96, 0.98, 0.99],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'turtle_breakout': {
-        'entry_period': [15, 20, 25],
-        'exit_period': [8, 10, 12],
-        'atr_period': [10, 14, 20],
-        'atr_mult': [1.5, 2.0, 2.5],
-        'vol_mult': [1.2, 1.5, 1.8],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'triple_ema': {
-        'ema_short': [5, 8, 10],
-        'ema_mid': [20, 21, 25],
-        'ema_long': [50, 55, 60],
-        'vol_period': [15, 20, 25],
-        'vol_mult': [1.0, 1.2, 1.5],
-        'stop_loss_ratio': [0.05, 0.07, 0.09],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'kdj_macd_resonance': {
-        'kdj_n': [7, 9, 11],
-        'kdj_m1': [2, 3, 4],
-        'kdj_m2': [2, 3, 4],
-        'macd_fast': [10, 12, 14],
-        'macd_slow': [24, 26, 28],
-        'macd_signal': [8, 9, 10],
-        'kdj_oversold': [25, 30, 35],
-        'kdj_overbought': [65, 70, 75],
-        'stop_loss_ratio': [0.05, 0.07, 0.09],
-        'take_profit_ratio': [0.15, 0.18, 0.20],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'rsi_atr_adaptive': {
-        'rsi_period': [12, 14, 16],
-        'rsi_oversold': [28, 30, 32],
-        'rsi_entry': [33, 35, 37],
-        'rsi_exit': [68, 70, 72],
-        'ma_period': [18, 20, 22],
-        'atr_period': [12, 14, 16],
-        'atr_mult_normal': [2.5, 3.0, 3.5],
-        'atr_mult_mid': [1.8, 2.0, 2.2],
-        'atr_mult_tight': [1.0, 1.2, 1.4],
-        'profit_mid': [0.06, 0.08, 0.10],
-        'profit_tight': [0.12, 0.15, 0.18],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'macd_boll': {
-        'macd_fast': [10, 12, 14],
-        'macd_slow': [24, 26, 28],
-        'macd_signal': [8, 9, 10],
-        'boll_period': [18, 20, 22],
-        'bb_std': [1.8, 2.0, 2.2],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'kdj_rsi': {
-        'kdj_n': [7, 9, 11],
-        'kdj_m1': [2, 3, 4],
-        'kdj_m2': [2, 3, 4],
-        'rsi_period': [12, 14, 16],
-        'rsi_oversold': [28, 30, 32],
-        'rsi_overbought': [68, 70, 72],
-        'k_oversold': [18, 20, 22],
-        'k_overbought': [78, 80, 82],
-        'stop_loss_ratio': [0.03, 0.04, 0.05],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'ma_volume': {
-        'ma_short': [8, 10, 12],
-        'ma_long': [25, 30, 35],
-        'ma_trend': [50, 60, 70],
-        'vol_period': [15, 20, 25],
-        'vol_mult': [1.3, 1.5, 1.7],
-        'stop_loss_ratio': [0.05, 0.06, 0.07],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'atr_stop': {
-        'breakout_period': [15, 20, 25],
-        'atr_period': [12, 14, 16],
-        'atr_multiplier': [1.8, 2.0, 2.2],
-        'trail_percent': [0.08, 0.10, 0.12],
-        'vol_mult': [1.1, 1.3, 1.5],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-    'composite': {
-        'ema_short': [18, 20, 22],
-        'ema_long': [55, 60, 65],
-        'macd_fast': [10, 12, 14],
-        'macd_slow': [24, 26, 28],
-        'macd_signal': [8, 9, 10],
-        'rsi_period': [12, 14, 16],
-        'rsi_oversold': [28, 30, 32],
-        'rsi_recovery': [38, 40, 42],
-        'rsi_overbought': [68, 70, 72],
-        'atr_period': [12, 14, 16],
-        'atr_multiplier': [2.2, 2.5, 2.8],
-        'vol_mult': [1.2, 1.4, 1.6],
-        'stop_loss_ratio': [0.04, 0.05, 0.06],
-        'take_profit_ratio': [0.12, 0.15, 0.18],
-        'position_ratio': [0.8, 0.85, 0.9],
-    },
-}
-
-
-# 所有策略的参数空间定义（快速优化版 - 每个参数2个值）
+# 所有策略的参数空间定义（统一，不区分基础和优化）
 PARAM_SPACES = {
+    # 基础策略 17个
     'macd_kdj': {
         'macd_fast': [8, 12],
         'macd_slow': [20, 26],
@@ -353,6 +127,173 @@ PARAM_SPACES = {
         'stop_loss_ratio': [0.05, 0.08],
         'take_profit_ratio': [0.10, 0.15],
     },
+    # 优化策略 19个
+    'macd_kdj_fibonacci': {
+        'macd_fast': [8, 12],
+        'macd_slow': [21, 26],
+        'macd_signal': [5, 8],
+        'kdj_n': [6, 9],
+        'kdj_m1': [2, 3],
+        'kdj_m2': [2, 3],
+        'stop_loss_ratio': [0.05, 0.08],
+        'take_profit_ratio': [0.12, 0.20],
+    },
+    'boll_rsi_optimized': {
+        'bb_period': [15, 20],
+        'bb_std': [1.8, 2.2],
+        'rsi_period': [14, 18],
+        'rsi_overbought': [65, 70],
+        'rsi_oversold': [30, 35],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'kdj_rsi_optimized': {
+        'kdj_n': [9, 14],
+        'kdj_m1': [3, 5],
+        'kdj_m2': [3, 5],
+        'rsi_period': [14, 18],
+        'rsi_overbought': [65, 70],
+        'rsi_oversold': [30, 35],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'macd_with_atr': {
+        'macd_fast': [8, 12],
+        'macd_slow': [20, 26],
+        'macd_signal': [6, 9],
+        'atr_period': [10, 14],
+        'atr_multiplier': [1.5, 2.5],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'rsi_with_trend': {
+        'rsi_period': [10, 18],
+        'rsi_overbought': [65, 75],
+        'rsi_oversold': [25, 35],
+        'ma_period': [15, 25],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'turtle_with_filter': {
+        'entry_period': [15, 20],
+        'exit_period': [8, 12],
+        'atr_period': [10, 14],
+        'atr_multiplier': [1.5, 2.5],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'ema_rsi': {
+        'ema_short': [15, 20],
+        'ema_long': [50, 60],
+        'rsi_period': [12, 16],
+        'rsi_overbought': [65, 75],
+        'rsi_oversold': [25, 35],
+        'stop_loss_ratio': [0.06, 0.10],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'dual_macd': {
+        'macd_fast': [10, 12],
+        'macd_slow': [24, 28],
+        'macd_signal': [8, 10],
+        'atr_period': [12, 16],
+        'atr_trail_n': [2.0, 3.0],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'macd': {
+        'macd_fast': [10, 12],
+        'macd_slow': [24, 28],
+        'macd_signal': [8, 10],
+        'stop_loss_ratio': [0.06, 0.10],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'boll_rsi': {
+        'boll_period': [15, 20],
+        'bb_std': [1.8, 2.2],
+        'rsi_period': [12, 16],
+        'rsi_oversold': [30, 40],
+        'rsi_overbought': [65, 75],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'turtle_breakout': {
+        'entry_period': [15, 20],
+        'exit_period': [8, 12],
+        'atr_period': [10, 14],
+        'atr_mult': [1.5, 2.5],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'triple_ema': {
+        'ema_short': [5, 10],
+        'ema_mid': [20, 25],
+        'ema_long': [50, 60],
+        'stop_loss_ratio': [0.05, 0.09],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'kdj_macd_resonance': {
+        'kdj_n': [7, 11],
+        'kdj_m1': [2, 4],
+        'kdj_m2': [2, 4],
+        'macd_fast': [10, 14],
+        'macd_slow': [24, 28],
+        'macd_signal': [8, 10],
+        'stop_loss_ratio': [0.05, 0.09],
+        'take_profit_ratio': [0.15, 0.20],
+    },
+    'rsi_atr_adaptive': {
+        'rsi_period': [12, 16],
+        'rsi_oversold': [28, 32],
+        'rsi_overbought': [68, 72],
+        'atr_period': [12, 16],
+        'atr_mult_normal': [2.5, 3.5],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'macd_boll': {
+        'macd_fast': [10, 14],
+        'macd_slow': [24, 28],
+        'macd_signal': [8, 10],
+        'boll_period': [18, 22],
+        'bb_std': [1.8, 2.2],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'kdj_rsi': {
+        'kdj_n': [7, 11],
+        'kdj_m1': [2, 4],
+        'kdj_m2': [2, 4],
+        'rsi_period': [12, 16],
+        'rsi_oversold': [28, 32],
+        'rsi_overbought': [68, 72],
+        'stop_loss_ratio': [0.03, 0.05],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'ma_volume': {
+        'ma_short': [8, 12],
+        'ma_long': [25, 35],
+        'vol_period': [15, 25],
+        'vol_mult': [1.3, 1.7],
+        'stop_loss_ratio': [0.05, 0.07],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'atr_stop': {
+        'breakout_period': [15, 25],
+        'atr_period': [12, 16],
+        'atr_multiplier': [1.8, 2.2],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
+    'composite': {
+        'ema_short': [18, 22],
+        'ema_long': [55, 65],
+        'macd_fast': [10, 14],
+        'macd_slow': [24, 28],
+        'macd_signal': [8, 10],
+        'rsi_period': [12, 16],
+        'stop_loss_ratio': [0.04, 0.06],
+        'take_profit_ratio': [0.12, 0.18],
+    },
 }
 
 
@@ -394,36 +335,16 @@ def generate_param_combinations(param_space):
 
 
 def get_all_strategy_types():
-    """获取所有策略类型列表"""
+    """获取所有策略类型列表（36个策略，不区分基础和优化）"""
     return list(PARAM_SPACES.keys())
 
 
-def get_optimized_param_space(strategy_type):
-    """
-    获取优化策略的参数空间
-
-    参数:
-        strategy_type: 优化策略类型
-
-    返回:
-        dict: 参数空间字典
-    """
-    return OPTIMIZED_PARAM_SPACES.get(strategy_type, {})
-
-
-def get_all_optimized_strategy_types():
-    """获取所有优化策略类型列表"""
-    return list(OPTIMIZED_PARAM_SPACES.keys())
-
-
 def get_all_param_spaces():
-    """获取所有参数空间（普通策略+优化策略）"""
-    all_spaces = {}
-    all_spaces.update(PARAM_SPACES)
-    all_spaces.update(OPTIMIZED_PARAM_SPACES)
-    return all_spaces
+    """获取所有参数空间（36个策略，不区分基础和优化）"""
+    return PARAM_SPACES
 
 
-def get_all_strategy_types_including_optimized():
-    """获取所有策略类型列表（包括优化策略）"""
-    return list(get_all_param_spaces().keys())
+# 兼容旧接口
+get_all_strategy_types_including_optimized = get_all_strategy_types
+get_all_optimized_strategy_types = lambda: []
+get_optimized_param_space = lambda _: {}

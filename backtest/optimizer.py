@@ -133,26 +133,16 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
     """
     from itertools import product
 
-    print(f"\n[优化] 开始优化策略: {strategy_type}")
+    logger.info(f"\n[优化] 开始优化策略: {strategy_type}")
 
     # 生成参数组合
-    def generate_param_combinations(param_space):
-        if not param_space:
-            return []
-        keys = list(param_space.keys())
-        values = list(param_space.values())
-        combinations = []
-        for combo in product(*values):
-            param_dict = dict(zip(keys, combo))
-            combinations.append(param_dict)
-        return combinations
-
+    from strategy.param_space import generate_param_combinations
     param_combinations = generate_param_combinations(param_space_dict)
-    print(f"  参数组合数量: {len(param_combinations)}")
+    logger.info(f"  参数组合数量: {len(param_combinations)}")
 
     # 参数组合级: 16线程并发评估
     max_threads = min(multiprocessing.cpu_count() * 2, 16)
-    print(f"  使用 {max_threads} 个线程评估参数组合")
+    logger.info(f"  使用 {max_threads} 个线程评估参数组合")
 
     # 线程池评估所有参数组合
     all_results = []
@@ -169,25 +159,25 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
                 if result:
                     all_results.append(result)
                 if completed % 10 == 0 or completed == len(param_combinations):
-                    print(f"  进度: {completed}/{len(param_combinations)}")
+                    logger.info(f"  进度: {completed}/{len(param_combinations)}")
             except Exception as e:
-                print(f"  参数组合评估失败: {str(e)}")
+                logger.warning(f"  参数组合评估失败: {str(e)}")
 
     if not all_results:
-        print(f"  警告: 策略 {strategy_type} 没有有效的参数组合结果")
+        logger.warning(f"  策略 {strategy_type} 没有有效的参数组合结果")
         return None
 
     # 按综合得分排序
     all_results.sort(key=lambda x: x['composite_score'], reverse=True)
     best_result = all_results[0]
 
-    print(f"  策略 {strategy_type} 优化完成!")
-    print(f"  最优参数: {best_result['params']}")
-    print(f"  综合得分: {best_result['composite_score']:.4f}")
-    print(f"  平均收益率: {best_result['avg_return']:+.2f}%")
-    print(f"  平均夏普比率: {best_result['avg_sharpe']:.3f}")
-    print(f"  平均胜率: {best_result['avg_win_rate']:.2f}%")
-    print(f"  平均最大回撤: {best_result['avg_max_drawdown']:.2f}%")
+    logger.info(f"  策略 {strategy_type} 优化完成!")
+    logger.info(f"  最优参数: {best_result['params']}")
+    logger.info(f"  综合得分: {best_result['composite_score']:.4f}")
+    logger.info(f"  平均收益率: {best_result['avg_return']:+.2f}%")
+    logger.info(f"  平均夏普比率: {best_result['avg_sharpe']:.3f}")
+    logger.info(f"  平均胜率: {best_result['avg_win_rate']:.2f}%")
+    logger.info(f"  平均最大回撤: {best_result['avg_max_drawdown']:.2f}%")
 
     return {
         'strategy_type': strategy_type,
@@ -276,13 +266,13 @@ class StrategyParameterOptimizer:
         返回:
             dict: 优化结果
         """
-        print(f"=" * 80)
-        print(f"优化策略: {strategy_type}")
-        print(f"=" * 80)
+        self.logger.info(f"=" * 80)
+        self.logger.info(f"优化策略: {strategy_type}")
+        self.logger.info(f"=" * 80)
 
         param_space = self.param_spaces.get(strategy_type, {})
         if not param_space:
-            print(f"  警告: 策略 {strategy_type} 没有定义参数空间")
+            self.logger.warning(f"  策略 {strategy_type} 没有定义参数空间")
             return None
 
         # 直接调用核心优化函数（避免多进程问题）
@@ -313,13 +303,13 @@ class StrategyParameterOptimizer:
             # 默认只优化普通策略，不包含优化策略
             strategy_types = get_all_strategy_types_including_optimized()
 
-        print("=" * 80)
-        print(f"开始优化所有策略 ({len(strategy_types)} 个) - 8线程并发")
-        print("=" * 80)
+        self.logger.info(f"=" * 80)
+        self.logger.info(f"开始优化所有策略 ({len(strategy_types)} 个) - 8线程并发")
+        self.logger.info(f"=" * 80)
 
         # 策略级: 8线程并发
         max_threads = min(multiprocessing.cpu_count() * 2, 8)
-        print(f"使用 {max_threads} 个线程并发优化策略")
+        self.logger.info(f"使用 {max_threads} 个线程并发优化策略")
 
         # 初始化进度日志
         progress_logger = ProgressLogger(self.config.LOG_DIR, "optimize_all")
@@ -360,18 +350,18 @@ class StrategyParameterOptimizer:
                             f"策略 {strategy_type} 无结果",
                             {"strategy": strategy_type}
                         )
-                    print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 完成")
+                    self.logger.info(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 完成")
                 except Exception as e:
                     progress_logger.error(
                         f"策略 {strategy_type} 失败",
                         {"strategy": strategy_type, "error": str(e)}
                     )
-                    print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 失败: {str(e)}")
+                    self.logger.error(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 失败: {str(e)}")
                     import traceback
-                    traceback.print_exc()
+                    self.logger.error(traceback.format_exc())
 
         progress_logger.finish(True, f"优化完成，成功 {len(all_results)}/{len(strategy_types)} 个策略", {"total": len(strategy_types), "success": len(all_results)})
-        print(f"\n进度日志已保存到: {progress_logger.get_log_file()}")
+        self.logger.info(f"\n进度日志已保存到: {progress_logger.get_log_file()}")
 
         return all_results
 
@@ -438,7 +428,7 @@ class StrategyParameterOptimizer:
             f.write("报告结束\n")
             f.write("=" * 150 + "\n")
 
-        print(f"\n优化对比报告已保存: {report_path}")
+        self.logger.info(f"\n优化对比报告已保存: {report_path}")
 
         # 每个策略更新自己的最优参数（滚动更新）
         self._update_each_strategy_best_params(optimized_results)
@@ -452,7 +442,6 @@ class StrategyParameterOptimizer:
         参数:
             optimized_results: 优化结果字典
         """
-        config_path = Path(__file__).parent.parent / "config.py"
         best_params_file = self.config.CONFIG_DIR / "best_strategy_params.json"
 
         # 兼容旧路径：如果temp目录有旧文件，迁移到config目录
@@ -461,9 +450,9 @@ class StrategyParameterOptimizer:
             try:
                 import shutil
                 shutil.move(str(old_params_file), str(best_params_file))
-                print(f"\n  已迁移旧参数文件到: {best_params_file}")
+                self.logger.info(f"\n  已迁移旧参数文件到: {best_params_file}")
             except Exception as e:
-                print(f"  迁移旧参数文件失败: {e}")
+                self.logger.warning(f"  迁移旧参数文件失败: {e}")
 
         # 1. 加载历史最优参数
         historical_best = {}
@@ -471,16 +460,16 @@ class StrategyParameterOptimizer:
             try:
                 with open(best_params_file, 'r', encoding='utf-8') as f:
                     historical_best = json.load(f)
-                print(f"\n  已加载历史最优参数记录: {len(historical_best)} 个策略")
+                self.logger.info(f"\n  已加载历史最优参数记录: {len(historical_best)} 个策略")
             except Exception as e:
-                print(f"  读取历史最优参数失败: {e}")
+                self.logger.warning(f"  读取历史最优参数失败: {e}")
 
         # 2. 对比并更新每个策略的最优参数
         updated_count = 0
-        print("\n  各策略优化结果对比:")
-        print("  " + "-" * 80)
-        print(f"  {'策略类型':<20} {'本次收益':<12} {'历史最优':<12} {'状态':<10}")
-        print("  " + "-" * 80)
+        self.logger.info("\n  各策略优化结果对比:")
+        self.logger.info("  " + "-" * 80)
+        self.logger.info(f"  {'策略类型':<20} {'本次收益':<12} {'历史最优':<12} {'状态':<10}")
+        self.logger.info("  " + "-" * 80)
 
         for strategy_type, result in optimized_results.items():
             if not result or 'best_result' not in result:
@@ -492,7 +481,10 @@ class StrategyParameterOptimizer:
 
             # 获取历史最优
             hist_data = historical_best.get(strategy_type, {})
-            hist_return = hist_data.get('avg_return', -float('inf'))
+            hist_return = hist_data.get('avg_return')
+            # 如果历史值是 null 或不存在，设为 -inf
+            if hist_return is None:
+                hist_return = -float('inf')
             status = "---"
 
             # 如果本次收益更高，更新历史最优
@@ -550,189 +542,46 @@ class StrategyParameterOptimizer:
             else:
                 status = "保持历史"
 
-            print(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return:>+10.2f}%  {status}")
+            hist_return_str = f"{hist_return:>+10.2f}%" if hist_return != -float('inf') else "   N/A   "
+            self.logger.info(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return_str}  {status}")
 
-        print("  " + "-" * 80)
+        self.logger.info("  " + "-" * 80)
 
-        # 3. 保存更新后的历史最优参数
+        # 3. 显示历史最优策略排名 (Top 5)
+        if historical_best:
+            self.logger.info("\n  历史最优策略排名 (Top 5):")
+            self.logger.info("  " + "-" * 60)
+
+            sorted_strategies = sorted(
+                historical_best.items(),
+                key=lambda x: x[1].get('avg_return') if x[1].get('avg_return') is not None else -float('inf'),
+                reverse=True
+            )
+
+            for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
+                ret = data.get('avg_return')
+                sharpe = data.get('avg_sharpe')
+                ret_str = f"{ret:>+8.2f}%" if ret is not None else "   N/A  "
+                sharpe_str = f"{sharpe:+.3f}" if sharpe is not None else " N/A "
+                self.logger.info(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe_str}")
+
+            self.logger.info("  " + "-" * 60)
+
+            if sorted_strategies:
+                top_strategy, top_data = sorted_strategies[0]
+                top_return = top_data.get('avg_return')
+                top_params = top_data.get('best_params', {})
+                top_return_str = f"{top_return:+.2f}%" if top_return is not None else "N/A"
+                self.logger.info(f"\n  全局最优策略: {top_strategy} (收益率: {top_return_str})")
+                self.logger.info(f"  最优参数: {top_params}")
+
+        # 4. 保存更新后的历史最优参数
         try:
             with open(best_params_file, 'w', encoding='utf-8') as f:
                 json.dump(historical_best, f, ensure_ascii=False, indent=2)
-            print(f"\n  历史最优参数已保存: {best_params_file}")
-            print(f"  共记录 {len(historical_best)} 个策略的最优参数")
+            self.logger.info(f"\n  历史最优参数已保存: {best_params_file}")
+            self.logger.info(f"  共记录 {len(historical_best)} 个策略的最优参数")
             if updated_count > 0:
-                print(f"  本次更新了 {updated_count} 个策略")
+                self.logger.info(f"  本次更新了 {updated_count} 个策略")
         except Exception as e:
-            print(f"  保存历史最优参数失败: {e}")
-
-        # 4. 找出全局最优策略，更新config.py
-        if not historical_best:
-            print("  没有最优参数可更新到config.py")
-            return
-
-        # 从历史最优中找收益率最高的
-        top_strategy = None
-        top_return = -float('inf')
-        top_data = None
-
-        print("\n  历史最优策略排名 (Top 5):")
-        print("  " + "-" * 60)
-
-        sorted_strategies = sorted(
-            historical_best.items(),
-            key=lambda x: x[1].get('avg_return', -float('inf')),
-            reverse=True
-        )
-
-        for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
-            ret = data.get('avg_return', 0)
-            sharpe = data.get('avg_sharpe', 0)
-            print(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
-            if i == 1:
-                top_strategy = strategy_type
-                top_return = ret
-                top_data = data
-
-        print("  " + "-" * 60)
-
-        if not top_strategy or not top_data:
-            return
-
-        top_params = top_data.get('best_params', {})
-        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
-        print(f"  最优参数: {top_params}")
-
-        # 更新config.py
-        if not config_path.exists():
-            print(f"  警告: config.py 不存在: {config_path}")
-            return
-
-        with open(config_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        updated = False
-        import re
-
-        # 参数映射：策略参数名 -> config参数名
-        param_mapping = {
-            'macd_fast': 'MACD_FAST',
-            'macd_slow': 'MACD_SLOW',
-            'macd_signal': 'MACD_SIGNAL',
-            'kdj_n': 'KDJ_N',
-            'kdj_m1': 'KDJ_M1',
-            'kdj_m2': 'KDJ_M2',
-            'rsi_period': 'RSI_PERIOD',
-            'rsi_overbought': 'RSI_OVERBOUGHT',
-            'rsi_oversold': 'RSI_OVERSOLD',
-            'bb_period': 'BOLLINGER_PERIOD',
-            'bb_std': 'BOLLINGER_STD',
-        }
-
-        # 更新config.py内容
-        for param_name, value in top_params.items():
-            if param_name in param_mapping:
-                config_name = param_mapping[param_name]
-
-                pattern = rf'(\s+){config_name}\s*=\s*[0-9.+-]+'
-                if isinstance(value, float):
-                    replacement = rf'\1{config_name} = {value}'
-                else:
-                    replacement = rf'\1{config_name} = {value}'
-
-                new_content, count = re.subn(pattern, replacement, content)
-                if count > 0:
-                    content = new_content
-                    updated = True
-                    print(f"  更新参数: {config_name} = {value}")
-
-        # 更新默认策略类型
-        # 所有36个策略都可以更新到STRATEGY_TYPE（包括基础策略和优化策略）
-        basic_strategies = [
-            'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-            'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
-            'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
-            'sar', 'keltner', 'triple_screen',
-            'macd_kdj_fibonacci', 'boll_rsi_optimized', 'kdj_rsi_optimized',
-            'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
-            'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
-            'triple_ema', 'kdj_macd_resonance', 'rsi_atr_adaptive',
-            'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite'
-        ]
-
-        if top_strategy in basic_strategies:
-            pattern = r"(\s+)STRATEGY_TYPE\s*=\s*['\"][^'\"]+['\"]"
-            replacement = rf'\1STRATEGY_TYPE = "{top_strategy}"'
-            new_content, count = re.subn(pattern, replacement, content)
-            if count > 0:
-                content = new_content
-                updated = True
-                print(f"  更新默认策略: STRATEGY_TYPE = {top_strategy}")
-
-        # 更新 OPTIMIZED_STRATEGIES 字典：用历史最优参数更新所有策略
-        print("  [更新 OPTIMIZED_STRATEGIES]")
-        try:
-            # 读取当前 config.py
-            import ast
-            config_content = content
-
-            # 找到 OPTIMIZED_STRATEGIES 字典
-            start_marker = "OPTIMIZED_STRATEGIES = {"
-            end_marker = "    }"
-
-            if start_marker not in config_content:
-                print("    ⚠️  未找到 OPTIMIZED_STRATEGIES 标记，跳过更新")
-            else:
-                start_idx = config_content.find(start_marker)
-
-                # 找到字典结束位置
-                brace_count = 0
-                end_idx = start_idx + len(start_marker)
-                for i, char in enumerate(config_content[start_idx + len(start_marker):]):
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        if brace_count == 0:
-                            end_idx = start_idx + len(start_marker) + i + 1
-                            break
-                        else:
-                            brace_count -= 1
-
-                if end_idx <= start_idx + len(start_marker):
-                    print("    ⚠️  无法解析 OPTIMIZED_STRATEGIES 字典，跳过更新")
-                else:
-                    # 提取原字典
-                    old_dict_str = config_content[start_idx:end_idx]
-                    old_dict_start = old_dict_str.find('{')
-                    old_dict_end = old_dict_str.rfind('}') + 1
-                    old_dict_content = old_dict_str[old_dict_start:old_dict_end]
-
-                    # 解析原字典
-                    old_dict = ast.literal_eval(old_dict_content)
-
-                    # 用历史最优参数更新：只更新有历史最优记录的策略
-                    updated_dict = old_dict.copy()
-                    update_count = 0
-                    for strategy_name, best_data in historical_best.items():
-                        if 'best_params' in best_data:
-                            updated_dict[strategy_name] = best_data['best_params']
-                            update_count += 1
-
-                    # 生成新字典字符串
-                    import pprint
-                    new_dict_str = "OPTIMIZED_STRATEGIES = " + pprint.pformat(updated_dict, indent=4, width=100)
-
-                    # 替换
-                    config_content = config_content[:start_idx] + new_dict_str + config_content[end_idx:]
-                    content = config_content
-                    updated = True
-                    print(f"    ✅ OPTIMIZED_STRATEGIES 已更新: {update_count} 个策略参数")
-
-        except Exception as e:
-            print(f"    ⚠️  更新 OPTIMIZED_STRATEGIES 失败: {e}")
-
-        if updated:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print("  config.py 已更新!")
-        else:
-            print("  没有需要更新的参数")
+            self.logger.error(f"  保存历史最优参数失败: {e}")

@@ -1,1 +1,137 @@
-# -*- coding: utf-8 -*-\n"""\n策略模块初始化\n"""\nfrom .strategy import (\n    BaseAStockStrategy,\n    MacdKdjStrategy,\n    RsiStrategy,\n    BollingerStrategy,\n    MaCrossStrategy,\n    KdjOversoldStrategy,\n    MacdZeroAxisStrategy,\n    TripleScreenStrategy,\n    TurtleTradingStrategy,\n    MomentumStrategy,\n    MeanReversionStrategy,\n    DonchianStrategy,\n    WilliamsRStrategy,\n    CciStrategy,\n    EmaCrossStrategy,\n    VolumeSpreadStrategy,\n    SarStrategy,\n    KeltnerStrategy,\n)\nfrom .portfolio import (\n    PortfolioStrategy,\n    StrategyConfig,\n    create_balanced_portfolio,\n    create_aggressive_portfolio,\n    create_conservative_portfolio,\n)\nfrom .market_state import (\n    MarketStateDetector,\n    StrategyRotator,\n)\nfrom .param_space import (\n    PARAM_SPACES,\n    OPTIMIZED_PARAM_SPACES,\n    get_param_space,\n    get_all_strategy_types,\n    get_optimized_param_space,\n)\n\n__all__ = [\n    # 策略类\n    'BaseAStockStrategy',\n    'MacdKdjStrategy',\n    'RsiStrategy',\n    'BollingerStrategy',\n    'MaCrossStrategy',\n    'KdjOversoldStrategy',\n    'MacdZeroAxisStrategy',\n    'TripleScreenStrategy',\n    'TurtleTradingStrategy',\n    'MomentumStrategy',\n    'MeanReversionStrategy',\n    'DonchianStrategy',\n    'WilliamsRStrategy',\n    'CciStrategy',\n    'EmaCrossStrategy',\n    'VolumeSpreadStrategy',\n    'SarStrategy',\n    'KeltnerStrategy',\n    # 组合策略\n    'PortfolioStrategy',\n    'StrategyConfig',\n    'create_balanced_portfolio',\n    'create_aggressive_portfolio',\n    'create_conservative_portfolio',\n    # 市场状态\n    'MarketStateDetector',\n    'StrategyRotator',\n    # 参数空间\n    'PARAM_SPACES',\n    'OPTIMIZED_PARAM_SPACES',\n    'get_param_space',\n    'get_all_strategy_types',\n    'get_optimized_param_space',\n]
+# -*- coding: utf-8 -*-
+"""
+策略模块初始化
+"""
+from .strategy import (
+    BaseAStockStrategy,
+    MacdKdjStrategy,
+    RsiStrategy,
+    BollingerStrategy,
+    MaCrossStrategy,
+    KdjOversoldStrategy,
+    MacdZeroAxisStrategy,
+    TripleScreenStrategy,
+    TurtleTradingStrategy,
+    MomentumStrategy,
+    MeanReversionStrategy,
+    DonchianStrategy,
+    WilliamsRStrategy,
+    CCIStrategy,
+    EMACrossStrategy,
+    VolumeSpreadStrategy,
+    SARStrategy,
+    KeltnerChannelStrategy,
+    # 优化策略
+    EmaRsiStrategy,
+    DualMacdStrategy,
+    MacdStrategy,
+    BollRsiStrategy,
+    TurtleBreakoutStrategy,
+    TripleEmaTrendStrategy,
+    KdjMacdResonanceStrategy,
+    RsiAtrAdaptiveStrategy,
+    MacdBollStrategy,
+    KdjRsiStrategy,
+    MaVolumeStrategy,
+    AtrStopStrategy,
+    CompositeStrategy,
+    MacdKdjFibonacciStrategy,
+    BollRsiOptimizedStrategy,
+    KdjRsiOptimizedStrategy,
+    # 别名
+    MacdStrategyWithATR,
+    RsiStrategyWithTrendFilter,
+    TurtleStrategyWithFilter,
+    MacdWithAtr,
+    RsiWithTrend,
+    TurtleWithFilter,
+    # 工厂函数
+    get_strategy_class,
+    get_all_strategy_types,
+    get_basic_strategy_types,
+    get_optimized_strategy_types,
+    create_strategy_with_config,
+)
+from .portfolio import (
+    PortfolioStrategy,
+    StrategyConfig,
+    create_balanced_portfolio,
+    create_aggressive_portfolio,
+    create_conservative_portfolio,
+)
+from .market_state import (
+    MarketStateDetector,
+    StrategyRotator,
+)
+from .param_space import (
+    PARAM_SPACES,
+    get_param_space,
+    get_all_strategy_types,
+    get_all_param_spaces,
+)
+
+__all__ = [
+    # 策略类 (36个策略 + 基类)
+    'BaseAStockStrategy',
+    'MacdKdjStrategy',
+    'RsiStrategy',
+    'BollingerStrategy',
+    'MaCrossStrategy',
+    'KdjOversoldStrategy',
+    'MacdZeroAxisStrategy',
+    'TripleScreenStrategy',
+    'TurtleTradingStrategy',
+    'MomentumStrategy',
+    'MeanReversionStrategy',
+    'DonchianStrategy',
+    'WilliamsRStrategy',
+    'CCIStrategy',
+    'EMACrossStrategy',
+    'VolumeSpreadStrategy',
+    'SARStrategy',
+    'KeltnerChannelStrategy',
+    # 优化策略类
+    'EmaRsiStrategy',
+    'DualMacdStrategy',
+    'MacdStrategy',
+    'BollRsiStrategy',
+    'TurtleBreakoutStrategy',
+    'TripleEmaTrendStrategy',
+    'KdjMacdResonanceStrategy',
+    'RsiAtrAdaptiveStrategy',
+    'MacdBollStrategy',
+    'KdjRsiStrategy',
+    'MaVolumeStrategy',
+    'AtrStopStrategy',
+    'CompositeStrategy',
+    'MacdKdjFibonacciStrategy',
+    'BollRsiOptimizedStrategy',
+    'KdjRsiOptimizedStrategy',
+    # 别名
+    'MacdStrategyWithATR',
+    'RsiStrategyWithTrendFilter',
+    'TurtleStrategyWithFilter',
+    'MacdWithAtr',
+    'RsiWithTrend',
+    'TurtleWithFilter',
+    # 工厂函数
+    'get_strategy_class',
+    'get_all_strategy_types',
+    'get_basic_strategy_types',
+    'get_optimized_strategy_types',
+    'create_strategy_with_config',
+    # 组合策略
+    'PortfolioStrategy',
+    'StrategyConfig',
+    'create_balanced_portfolio',
+    'create_aggressive_portfolio',
+    'create_conservative_portfolio',
+    # 市场状态
+    'MarketStateDetector',
+    'StrategyRotator',
+    # 参数空间 (统一，不区分基础和优化)
+    'PARAM_SPACES',
+    'get_param_space',
+    'get_all_strategy_types',
+    'get_all_param_spaces',
+]

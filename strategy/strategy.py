@@ -2615,3 +2615,13 @@ if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("策略模块测试完成！")
     print("=" * 80)
+
+
+# ============================================================================
+# 策略类名别名（保持命名一致性）
+# ============================================================================
+
+# 优化策略别名
+MacdWithAtr = MacdStrategyWithATR
+RsiWithTrend = RsiStrategyWithTrendFilter
+TurtleWithFilter = TurtleStrategyWithFilter
