@@ -427,7 +427,6 @@ class StrategyParameterOptimizer:
         参数:
             optimized_results: 优化结果字典
         """
-        config_path = Path(__file__).parent.parent / "config.py"
         best_params_file = self.config.CONFIG_DIR / "best_strategy_params.json"
 
         # 兼容旧路径：如果temp目录有旧文件，迁移到config目录
@@ -507,7 +506,32 @@ class StrategyParameterOptimizer:
 
         print("  " + "-" * 80)
 
-        # 3. 保存更新后的历史最优参数
+        # 3. 显示历史最优策略排名 (Top 5)
+        if historical_best:
+            print("\n  历史最优策略排名 (Top 5):")
+            print("  " + "-" * 60)
+
+            sorted_strategies = sorted(
+                historical_best.items(),
+                key=lambda x: x[1].get('avg_return', -float('inf')),
+                reverse=True
+            )
+
+            for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
+                ret = data.get('avg_return', 0)
+                sharpe = data.get('avg_sharpe', 0)
+                print(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
+
+            print("  " + "-" * 60)
+
+            if sorted_strategies:
+                top_strategy, top_data = sorted_strategies[0]
+                top_return = top_data.get('avg_return', 0)
+                top_params = top_data.get('best_params', {})
+                print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
+                print(f"  最优参数: {top_params}")
+
+        # 4. 保存更新后的历史最优参数
         try:
             with open(best_params_file, 'w', encoding='utf-8') as f:
                 json.dump(historical_best, f, ensure_ascii=False, indent=2)
@@ -517,105 +541,3 @@ class StrategyParameterOptimizer:
                 print(f"  本次更新了 {updated_count} 个策略")
         except Exception as e:
             print(f"  保存历史最优参数失败: {e}")
-
-        # 4. 找出全局最优策略，更新config.py
-        if not historical_best:
-            print("  没有最优参数可更新到config.py")
-            return
-
-        # 从历史最优中找收益率最高的
-        top_strategy = None
-        top_return = -float('inf')
-        top_data = None
-
-        print("\n  历史最优策略排名 (Top 5):")
-        print("  " + "-" * 60)
-
-        sorted_strategies = sorted(
-            historical_best.items(),
-            key=lambda x: x[1].get('avg_return', -float('inf')),
-            reverse=True
-        )
-
-        for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
-            ret = data.get('avg_return', 0)
-            sharpe = data.get('avg_sharpe', 0)
-            print(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
-            if i == 1:
-                top_strategy = strategy_type
-                top_return = ret
-                top_data = data
-
-        print("  " + "-" * 60)
-
-        if not top_strategy or not top_data:
-            return
-
-        top_params = top_data.get('best_params', {})
-        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
-        print(f"  最优参数: {top_params}")
-
-        # 更新config.py
-        if not config_path.exists():
-            print(f"  警告: config.py 不存在: {config_path}")
-            return
-
-        with open(config_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        updated = False
-        import re
-
-        # 参数映射：策略参数名 -> config参数名
-        param_mapping = {
-            'macd_fast': 'MACD_FAST',
-            'macd_slow': 'MACD_SLOW',
-            'macd_signal': 'MACD_SIGNAL',
-            'kdj_n': 'KDJ_N',
-            'kdj_m1': 'KDJ_M1',
-            'kdj_m2': 'KDJ_M2',
-            'rsi_period': 'RSI_PERIOD',
-            'rsi_overbought': 'RSI_OVERBOUGHT',
-            'rsi_oversold': 'RSI_OVERSOLD',
-            'bb_period': 'BOLLINGER_PERIOD',
-            'bb_std': 'BOLLINGER_STD',
-        }
-
-        # 更新config.py内容
-        for param_name, value in top_params.items():
-            if param_name in param_mapping:
-                config_name = param_mapping[param_name]
-
-                pattern = rf'(\s+){config_name}\s*=\s*[0-9.+-]+'
-                if isinstance(value, float):
-                    replacement = rf'\1{config_name} = {value}'
-                else:
-                    replacement = rf'\1{config_name} = {value}'
-
-                new_content, count = re.subn(pattern, replacement, content)
-                if count > 0:
-                    content = new_content
-                    updated = True
-                    print(f"  更新参数: {config_name} = {value}")
-
-        # 更新默认策略类型
-        basic_strategies = ['macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-                           'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
-                           'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
-                           'sar', 'keltner', 'triple_screen']
-
-        if top_strategy in basic_strategies:
-            pattern = r"(\s+)STRATEGY_TYPE\s*=\s*['\"][^'\"]+['\"]"
-            replacement = rf'\1STRATEGY_TYPE = "{top_strategy}"'
-            new_content, count = re.subn(pattern, replacement, content)
-            if count > 0:
-                content = new_content
-                updated = True
-                print(f"  更新默认策略: STRATEGY_TYPE = {top_strategy}")
-
-        if updated:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print("  config.py 已更新!")
-        else:
-            print("  没有需要更新的参数")
