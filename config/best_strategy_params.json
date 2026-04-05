@@ -1,0 +1,14 @@
+{
+  "rsi": {
+    "avg_return": 22.218644726249998,
+    "avg_sharpe": 0.8174143333912807,
+    "best_params": {
+      "rsi_period": 14,
+      "rsi_overbought": 70,
+      "rsi_oversold": 30,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-01 02:28:10"
+  }
+}

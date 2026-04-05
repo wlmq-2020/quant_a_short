@@ -404,7 +404,17 @@ class StrategyParameterOptimizer:
             optimized_results: 优化结果字典
         """
         config_path = Path(__file__).parent.parent / "config.py"
-        best_params_file = self.temp_dir / "best_strategy_params.json"
+        best_params_file = self.config.CONFIG_DIR / "best_strategy_params.json"
+
+        # 兼容旧路径：如果temp目录有旧文件，迁移到config目录
+        old_params_file = self.temp_dir / "best_strategy_params.json"
+        if old_params_file.exists() and not best_params_file.exists():
+            try:
+                import shutil
+                shutil.move(str(old_params_file), str(best_params_file))
+                print(f"\n  已迁移旧参数文件到: {best_params_file}")
+            except Exception as e:
+                print(f"  迁移旧参数文件失败: {e}")
 
         # 1. 加载历史最优参数
         historical_best = {}

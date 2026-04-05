@@ -19,6 +19,7 @@ class Config:
     SAVED_DATA_DIR = PROJECT_ROOT / "saved_data"
     REPORTS_DIR = PROJECT_ROOT / "reports"
     TEMP_DIR = PROJECT_ROOT / "temp"
+    CONFIG_DIR = PROJECT_ROOT / "config"
 
     # ========== 股票配置 ==========
     # 上证50成分股完整列表（50只）
@@ -178,9 +179,15 @@ class Config:
             cls.SAVED_DATA_DIR,
             cls.REPORTS_DIR,
             cls.TEMP_DIR,
+            cls.CONFIG_DIR,
         ]
         for dir_path in dirs:
             dir_path.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def get_best_params_path(cls):
+        """获取最优参数文件路径"""
+        return cls.CONFIG_DIR / "best_strategy_params.json"
 
     @classmethod
     def get_stock_list(cls):
