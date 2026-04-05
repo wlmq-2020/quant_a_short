@@ -4,6 +4,7 @@
 集中管理所有配置参数
 """
 import os
+import json
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -119,24 +120,7 @@ class Config:
     T1_RULE = True
 
     # ========== 策略配置 ==========
-    # 策略类型（共18种量化策略）：
-    # - "macd_kdj"      : MACD+KDJ共振策略（经典技术指标组合）
-    # - "rsi"           : RSI超买超卖策略（相对强弱指标）
-    # - "bollinger"     : 布林带突破策略（波动率通道）
-    # - "ma_cross"      : 均线交叉策略（简单均线金叉死叉）
-    # - "kdj_oversold"  : KDJ超卖超买策略（随机指标）
-    # - "macd_zero_axis": MACD零轴策略（多空分界）
-    # - "triple_screen" : 三重滤网交易系统（趋势+震荡）
-    # - "turtle_trading": 海龟交易策略（经典趋势跟踪）
-    # - "momentum"      : 动量策略（追涨杀跌）
-    # - "mean_reversion": 均值回归策略（回归中枢）
-    # - "donchian"      : 唐奇安通道策略（突破系统）
-    # - "williams_r"    : 威廉指标策略（超买超卖）
-    # - "cci"           : 顺势指标策略（市场异常）
-    # - "ema_cross"     : 指数均线交叉策略（加权平均）
-    # - "volume_spread" : 量价配合策略（成交量确认）
-    # - "sar"           : 抛物线转向策略（趋势止损）
-    # - "keltner"       : 凯特纳通道策略（ATR通道）
+    # 策略类型（共36种量化策略，统一管理不再区分基础和优化）
     STRATEGY_TYPE = "rsi"
 
     # MACD参数 (优化后)
@@ -186,105 +170,48 @@ class Config:
 
     # 日志文件保留天数
     LOG_RETENTION_DAYS = 7
-    # ========== 所有策略最优参数配置 ==========
-    # 优化完成时间: 2026-04-01 12:39
-    OPTIMIZED_STRATEGIES = {   'bollinger': {   'bb_period': 20,
-                     'bb_std': 2.5,
-                     'stop_loss_ratio': 0.05,
-                     'take_profit_ratio': 0.2},
-    'cci': {   'cci_overbought': 80,
-               'cci_oversold': -120,
-               'cci_period': 15,
-               'stop_loss_ratio': 0.05,
-               'take_profit_ratio': 0.2},
-    'donchian': {   'donchian_period': 15,
-                    'exit_period': 10,
-                    'stop_loss_ratio': 0.05,
-                    'take_profit_ratio': 0.15},
-    'ema_cross': {   'ema_fast': 8,
-                     'ema_slow': 20,
-                     'stop_loss_ratio': 0.03,
-                     'take_profit_ratio': 0.15},
-    'kdj_oversold': {   'kdj_m1': 3,
-                        'kdj_m2': 3,
-                        'kdj_n': 9,
-                        'overbought_threshold': 85,
-                        'oversold_threshold': 25,
-                        'stop_loss_ratio': 0.08,
-                        'take_profit_ratio': 0.12},
-    'keltner': {   'kc_multiplier': 2.5,
-                   'kc_period': 20,
-                   'stop_loss_ratio': 0.08,
-                   'take_profit_ratio': 0.1},
-    'ma_cross': {'ma_fast': 5, 'ma_slow': 25, 'stop_loss_ratio': 0.05, 'take_profit_ratio': 0.2},
-    'macd_kdj': {   'kdj_m1': 3,
-                    'kdj_m2': 3,
-                    'kdj_n': 6,
-                    'macd_fast': 8,
-                    'macd_signal': 6,
-                    'macd_slow': 20,
-                    'stop_loss_ratio': 0.03,
-                    'take_profit_ratio': 0.15},
-    'macd_zero_axis': {   'macd_fast': 16,
-                          'macd_signal': 9,
-                          'macd_slow': 20,
-                          'stop_loss_ratio': 0.05,
-                          'take_profit_ratio': 0.2},
-    'mean_reversion': {   'ma_period': 20,
-                          'std_threshold': 1.2,
-                          'stop_loss_ratio': 0.05,
-                          'take_profit_ratio': 0.2},
-    'momentum': {   'momentum_period': 10,
-                    'momentum_threshold': 0.02,
-                    'stop_loss_ratio': 0.03,
-                    'take_profit_ratio': 0.2},
-    'rsi': {   'rsi_overbought': 70,
-               'rsi_oversold': 30,
-               'rsi_period': 14,
-               'stop_loss_ratio': 0.05,
-               'take_profit_ratio': 0.15},
-    'sar': {'sar_af': 0.015, 'sar_max_af': 0.15, 'stop_loss_ratio': 0.05, 'take_profit_ratio': 0.2},
-    'triple_screen': {   'overbought_threshold': 70,
-                         'oversold_threshold': 25,
-                         'stoch_period': 18,
-                         'stop_loss_ratio': 0.03,
-                         'take_profit_ratio': 0.08,
-                         'trend_period': 25},
-    'turtle_trading': {   'atr_period': 14,
-                          'entry_period': 15,
-                          'exit_period': 10,
-                          'stop_loss_ratio': 0.05,
-                          'take_profit_ratio': 0.15},
-    'volume_spread': {   'ma_long': 20,
-                         'ma_short': 3,
-                         'stop_loss_ratio': 0.03,
-                         'take_profit_ratio': 0.2,
-                         'volume_ma_period': 20,
-                         'volume_multiplier': 1.5},
-    'williams_r': {   'overbought': -25,
-                      'oversold': -80,
-                      'stop_loss_ratio': 0.03,
-                      'take_profit_ratio': 0.2,
-                      'williams_period': 14}}
+
+    # ========== 最优参数缓存 ==========
+    _best_params_cache = None
+    _best_params_mtime = None
+
+    @classmethod
+    def _load_best_params(cls):
+        """加载最优参数（内部使用）"""
+        params_path = cls.get_best_params_path()
+        if not params_path.exists():
+            return {}
+
+        mtime = params_path.stat().st_mtime
+        if cls._best_params_cache is None or cls._best_params_mtime != mtime:
+            try:
+                with open(params_path, 'r', encoding='utf-8') as f:
+                    cls._best_params_cache = json.load(f)
+                cls._best_params_mtime = mtime
+            except Exception:
+                cls._best_params_cache = {}
+        return cls._best_params_cache
 
     @classmethod
     def get_optimized_params(cls, strategy_type):
         """
         获取指定策略的最优参数
-        
+
         参数:
             strategy_type: 策略类型
-            
+
         返回:
-            dict: 最优参数字典
+            dict: 最优参数字典（仅best_params部分）
         """
-        return cls.OPTIMIZED_STRATEGIES.get(strategy_type, {})
+        all_params = cls._load_best_params()
+        strategy_data = all_params.get(strategy_type, {})
+        return strategy_data.get('best_params', {})
 
     @classmethod
     def get_all_optimized_strategies(cls):
         """获取所有已优化的策略列表"""
-        return list(cls.OPTIMIZED_STRATEGIES.keys())
-
+        all_params = cls._load_best_params()
+        return list(all_params.keys())
 
     @classmethod
     def ensure_dirs(cls):
