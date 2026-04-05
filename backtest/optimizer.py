@@ -495,7 +495,8 @@ class StrategyParameterOptimizer:
             else:
                 status = "保持历史"
 
-            self.logger.info(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return:>+10.2f}%  {status}")
+            hist_return_str = f"{hist_return:>+10.2f}%" if hist_return != -float('inf') else "   N/A   "
+            self.logger.info(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return_str}  {status}")
 
         self.logger.info("  " + "-" * 80)
 
@@ -506,22 +507,25 @@ class StrategyParameterOptimizer:
 
             sorted_strategies = sorted(
                 historical_best.items(),
-                key=lambda x: x[1].get('avg_return', -float('inf')),
+                key=lambda x: x[1].get('avg_return') if x[1].get('avg_return') is not None else -float('inf'),
                 reverse=True
             )
 
             for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
-                ret = data.get('avg_return', 0)
-                sharpe = data.get('avg_sharpe', 0)
-                self.logger.info(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
+                ret = data.get('avg_return')
+                sharpe = data.get('avg_sharpe')
+                ret_str = f"{ret:>+8.2f}%" if ret is not None else "   N/A  "
+                sharpe_str = f"{sharpe:+.3f}" if sharpe is not None else " N/A "
+                self.logger.info(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe_str}")
 
             self.logger.info("  " + "-" * 60)
 
             if sorted_strategies:
                 top_strategy, top_data = sorted_strategies[0]
-                top_return = top_data.get('avg_return', 0)
+                top_return = top_data.get('avg_return')
                 top_params = top_data.get('best_params', {})
-                self.logger.info(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
+                top_return_str = f"{top_return:+.2f}%" if top_return is not None else "N/A"
+                self.logger.info(f"\n  全局最优策略: {top_strategy} (收益率: {top_return_str})")
                 self.logger.info(f"  最优参数: {top_params}")
 
         # 4. 保存更新后的历史最优参数
