@@ -4,7 +4,6 @@ A股短线策略模块 - Backtrader版本（完整版）
 提供多种A股高胜率短线策略 - 共36个策略
 
 策略列表（共36个）:
-【基础策略 - 17个】（历史分类，不再区分）
 1. macd_kdj              - MACD+KDJ共振策略
 2. rsi                   - RSI超买超卖策略
 3. bollinger             - 布林带策略
@@ -22,8 +21,6 @@ A股短线策略模块 - Backtrader版本（完整版）
 15. volume_spread        - 量价配合策略
 16. sar                  - 抛物线转向指标策略
 17. keltner              - 凯特纳通道策略
-
-【优化策略 - 19个】（历史分类，不再区分）
 18. macd_kdj_fibonacci  - MACD+KDJ共振策略（斐波那契参数优化版）
 19. boll_rsi_optimized   - 布林带+RSI策略优化版
 20. kdj_rsi_optimized    - KDJ+RSI策略优化版
