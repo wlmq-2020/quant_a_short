@@ -131,17 +131,17 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
     返回:
         dict: 策略优化结果
     """
-    print(f"\n[优化] 开始优化策略: {strategy_type}")
+    logger.info(f"[优化] 开始优化策略: {strategy_type}")
 
     # 从 param_space.py 导入统一的参数组合生成函数
     from strategy.param_space import generate_param_combinations
 
     param_combinations = generate_param_combinations(param_space_dict)
-    print(f"  参数组合数量: {len(param_combinations)}")
+    logger.info(f"  参数组合数量: {len(param_combinations)}")
 
     # 参数组合级: 16线程并发评估
     max_threads = min(multiprocessing.cpu_count() * 2, 16)
-    print(f"  使用 {max_threads} 个线程评估参数组合")
+    logger.info(f"  使用 {max_threads} 个线程评估参数组合")
 
     # 线程池评估所有参数组合
     all_results = []
@@ -158,25 +158,25 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
                 if result:
                     all_results.append(result)
                 if completed % 10 == 0 or completed == len(param_combinations):
-                    print(f"  进度: {completed}/{len(param_combinations)}")
+                    logger.info(f"  进度: {completed}/{len(param_combinations)}")
             except Exception as e:
-                print(f"  参数组合评估失败: {str(e)}")
+                logger.error(f"  参数组合评估失败: {str(e)}")
 
     if not all_results:
-        print(f"  警告: 策略 {strategy_type} 没有有效的参数组合结果")
+        logger.warning(f"  策略 {strategy_type} 没有有效的参数组合结果")
         return None
 
     # 按综合得分排序
     all_results.sort(key=lambda x: x['composite_score'], reverse=True)
     best_result = all_results[0]
 
-    print(f"  策略 {strategy_type} 优化完成!")
-    print(f"  最优参数: {best_result['params']}")
-    print(f"  综合得分: {best_result['composite_score']:.4f}")
-    print(f"  平均收益率: {best_result['avg_return']:+.2f}%")
-    print(f"  平均夏普比率: {best_result['avg_sharpe']:.3f}")
-    print(f"  平均胜率: {best_result['avg_win_rate']:.2f}%")
-    print(f"  平均最大回撤: {best_result['avg_max_drawdown']:.2f}%")
+    logger.info(f"  策略 {strategy_type} 优化完成!")
+    logger.info(f"  最优参数: {best_result['params']}")
+    logger.info(f"  综合得分: {best_result['composite_score']:.4f}")
+    logger.info(f"  平均收益率: {best_result['avg_return']:+.2f}%")
+    logger.info(f"  平均夏普比率: {best_result['avg_sharpe']:.3f}")
+    logger.info(f"  平均胜率: {best_result['avg_win_rate']:.2f}%")
+    logger.info(f"  平均最大回撤: {best_result['avg_max_drawdown']:.2f}%")
 
     return {
         'strategy_type': strategy_type,
@@ -249,7 +249,7 @@ class StrategyParameterOptimizer:
         # 优化结果缓存
         self.optimization_results = {}
 
-        # 导入参数空间（包括优化策略）
+        # 导入参数空间
         from strategy.param_space import get_all_param_spaces
         self.param_spaces = get_all_param_spaces()
 
@@ -265,13 +265,13 @@ class StrategyParameterOptimizer:
         返回:
             dict: 优化结果
         """
-        print(f"=" * 80)
-        print(f"优化策略: {strategy_type}")
-        print(f"=" * 80)
+        self.logger.info(f"=" * 80)
+        self.logger.info(f"优化策略: {strategy_type}")
+        self.logger.info(f"=" * 80)
 
         param_space = self.param_spaces.get(strategy_type, {})
         if not param_space:
-            print(f"  警告: 策略 {strategy_type} 没有定义参数空间")
+            self.logger.warning(f"  策略 {strategy_type} 没有定义参数空间")
             return None
 
         # 直接调用核心优化函数（避免多进程问题）
@@ -299,16 +299,16 @@ class StrategyParameterOptimizer:
         from strategy.param_space import get_all_strategy_types_including_optimized
 
         if strategy_types is None:
-            # 默认只优化普通策略，不包含优化策略
+            # 默认优化所有策略
             strategy_types = get_all_strategy_types_including_optimized()
 
-        print("=" * 80)
-        print(f"开始优化所有策略 ({len(strategy_types)} 个) - 8线程并发")
-        print("=" * 80)
+        self.logger.info("=" * 80)
+        self.logger.info(f"开始优化所有策略 ({len(strategy_types)} 个) - 8线程并发")
+        self.logger.info("=" * 80)
 
         # 策略级: 8线程并发
         max_threads = min(multiprocessing.cpu_count() * 2, 8)
-        print(f"使用 {max_threads} 个线程并发优化策略")
+        self.logger.info(f"使用 {max_threads} 个线程并发优化策略")
 
         # 初始化进度日志
         progress_logger = ProgressLogger(self.config.LOG_DIR, "optimize_all")
@@ -349,18 +349,18 @@ class StrategyParameterOptimizer:
                             f"策略 {strategy_type} 无结果",
                             {"strategy": strategy_type}
                         )
-                    print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 完成")
+                    self.logger.info(f"[{completed}/{len(strategy_types)}] 策略 {strategy_type} 完成")
                 except Exception as e:
                     progress_logger.error(
                         f"策略 {strategy_type} 失败",
                         {"strategy": strategy_type, "error": str(e)}
                     )
-                    print(f"\n[{completed}/{len(strategy_types)}] 策略 {strategy_type} 失败: {str(e)}")
+                    self.logger.error(f"[{completed}/{len(strategy_types)}] 策略 {strategy_type} 失败: {str(e)}")
                     import traceback
                     traceback.print_exc()
 
         progress_logger.finish(True, f"优化完成，成功 {len(all_results)}/{len(strategy_types)} 个策略", {"total": len(strategy_types), "success": len(all_results)})
-        print(f"\n进度日志已保存到: {progress_logger.get_log_file()}")
+        self.logger.info(f"进度日志已保存到: {progress_logger.get_log_file()}")
 
         return all_results
 
@@ -427,7 +427,7 @@ class StrategyParameterOptimizer:
             f.write("报告结束\n")
             f.write("=" * 150 + "\n")
 
-        print(f"\n优化对比报告已保存: {report_path}")
+        self.logger.info(f"优化对比报告已保存: {report_path}")
 
         # 每个策略更新自己的最优参数（滚动更新）
         self._update_each_strategy_best_params(optimized_results)
@@ -450,9 +450,9 @@ class StrategyParameterOptimizer:
             try:
                 import shutil
                 shutil.move(str(old_params_file), str(best_params_file))
-                print(f"\n  已迁移旧参数文件到: {best_params_file}")
+                self.logger.info(f"  已迁移旧参数文件到: {best_params_file}")
             except Exception as e:
-                print(f"  迁移旧参数文件失败: {e}")
+                self.logger.warning(f"  迁移旧参数文件失败: {e}")
 
         # 1. 加载历史最优参数
         historical_best = {}
@@ -460,16 +460,16 @@ class StrategyParameterOptimizer:
             try:
                 with open(best_params_file, 'r', encoding='utf-8') as f:
                     historical_best = json.load(f)
-                print(f"\n  已加载历史最优参数记录: {len(historical_best)} 个策略")
+                self.logger.info(f"  已加载历史最优参数记录: {len(historical_best)} 个策略")
             except Exception as e:
-                print(f"  读取历史最优参数失败: {e}")
+                self.logger.warning(f"  读取历史最优参数失败: {e}")
 
         # 2. 对比并更新每个策略的最优参数
         updated_count = 0
-        print("\n  各策略优化结果对比:")
-        print("  " + "-" * 80)
-        print(f"  {'策略类型':<20} {'本次收益':<12} {'历史最优':<12} {'状态':<10}")
-        print("  " + "-" * 80)
+        self.logger.info("  各策略优化结果对比:")
+        self.logger.info("  " + "-" * 80)
+        self.logger.info(f"  {'策略类型':<20} {'本次收益':<12} {'历史最优':<12} {'状态':<10}")
+        self.logger.info("  " + "-" * 80)
 
         for strategy_type, result in optimized_results.items():
             if not result or 'best_result' not in result:
@@ -537,28 +537,28 @@ class StrategyParameterOptimizer:
             # 格式化显示，处理 None 值
             curr_str = f"{current_return:>+10.2f}%" if current_return is not None else "   N/A   "
             hist_str = f"{hist_return:>+10.2f}%" if hist_return is not None else "   N/A   "
-            print(f"  {strategy_type:<20} {curr_str}  {hist_str}  {status}")
+            self.logger.info(f"  {strategy_type:<20} {curr_str}  {hist_str}  {status}")
 
-        print("  " + "-" * 80)
+        self.logger.info("  " + "-" * 80)
 
         # 3. 保存更新后的历史最优参数
         try:
             with open(best_params_file, 'w', encoding='utf-8') as f:
                 json.dump(historical_best, f, ensure_ascii=False, indent=2)
-            print(f"\n  历史最优参数已保存: {best_params_file}")
-            print(f"  共记录 {len(historical_best)} 个策略的最优参数")
+            self.logger.info(f"  历史最优参数已保存: {best_params_file}")
+            self.logger.info(f"  共记录 {len(historical_best)} 个策略的最优参数")
             if updated_count > 0:
-                print(f"  本次更新了 {updated_count} 个策略")
+                self.logger.info(f"  本次更新了 {updated_count} 个策略")
         except Exception as e:
-            print(f"  保存历史最优参数失败: {e}")
+            self.logger.error(f"  保存历史最优参数失败: {e}")
 
         # 4. 显示历史最优策略排名 (Top 5)
         if not historical_best:
-            print("  没有最优参数记录")
+            self.logger.info("  没有最优参数记录")
             return
 
-        print("\n  历史最优策略排名 (Top 5):")
-        print("  " + "-" * 60)
+        self.logger.info("  历史最优策略排名 (Top 5):")
+        self.logger.info("  " + "-" * 60)
 
         sorted_strategies = sorted(
             historical_best.items(),
@@ -570,8 +570,8 @@ class StrategyParameterOptimizer:
             ret = data.get('avg_return')
             sharpe = data.get('avg_sharpe', 0)
             ret_str = f"{ret:>+8.2f}%" if ret is not None else "   N/A  "
-            print(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe:+.3f}")
+            self.logger.info(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe:+.3f}")
 
-        print("  " + "-" * 60)
-        print("  [提示] 最优参数已保存到 best_strategy_params.json")
-        print("  [提示] 不再修改 config.py 源代码")
+        self.logger.info("  " + "-" * 60)
+        self.logger.info("  [提示] 最优参数已保存到 best_strategy_params.json")
+        self.logger.info("  [提示] 不再修改 config.py 源代码")

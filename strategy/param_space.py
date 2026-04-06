@@ -6,9 +6,8 @@
 from itertools import product
 
 
-# 所有策略的参数空间定义（统一，不区分基础和优化）
+# 所有策略的参数空间定义（共36个）
 PARAM_SPACES = {
-    # 基础策略 17个
     'macd_kdj': {
         'macd_fast': [8, 12],
         'macd_slow': [20, 26],
@@ -127,7 +126,6 @@ PARAM_SPACES = {
         'stop_loss_ratio': [0.05, 0.08],
         'take_profit_ratio': [0.10, 0.15],
     },
-    # 优化策略 19个
     'macd_kdj_fibonacci': {
         'macd_fast': [8, 12],
         'macd_slow': [21, 26],

@@ -21,7 +21,6 @@ from .strategy import (
     VolumeSpreadStrategy,
     SARStrategy,
     KeltnerChannelStrategy,
-    # 优化策略
     EmaRsiStrategy,
     DualMacdStrategy,
     MacdStrategy,
@@ -90,7 +89,6 @@ __all__ = [
     'VolumeSpreadStrategy',
     'SARStrategy',
     'KeltnerChannelStrategy',
-    # 优化策略类
     'EmaRsiStrategy',
     'DualMacdStrategy',
     'MacdStrategy',
@@ -129,7 +127,7 @@ __all__ = [
     # 市场状态
     'MarketStateDetector',
     'StrategyRotator',
-    # 参数空间 (统一，不区分基础和优化)
+    # 参数空间 (共36个策略)
     'PARAM_SPACES',
     'get_param_space',
     'get_all_strategy_types',

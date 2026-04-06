@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 """
 A股短线策略模块 - Backtrader版本（完整版）
-提供多种A股高胜率短线策略 - 包含基础策略和优化策略共36个
+提供多种A股高胜率短线策略 - 共36个策略
 
 策略列表（共36个）:
-【基础策略 - 17个】
-1. macd_kdj          - MACD+KDJ共振策略
-2. rsi               - RSI超买超卖策略
-3. bollinger         - 布林带策略
-4. ma_cross          - 均线交叉策略
-5. kdj_oversold      - KDJ超卖超买策略
-6. macd_zero_axis    - MACD零轴策略
-7. triple_screen     - 三重滤网交易系统
-8. turtle_trading    - 海龟交易策略
-9. momentum          - 动量策略
-10. mean_reversion   - 均值回归策略
-11. donchian         - 唐奇安通道策略
-12. williams_r       - 威廉指标策略
-13. cci              - 顺势指标策略
-14. ema_cross        - 指数均线交叉策略
-15. volume_spread    - 量价配合策略
-16. sar              - 抛物线转向指标策略
-17. keltner          - 凯特纳通道策略
+【基础策略 - 17个】（历史分类，不再区分）
+1. macd_kdj              - MACD+KDJ共振策略
+2. rsi                   - RSI超买超卖策略
+3. bollinger             - 布林带策略
+4. ma_cross              - 均线交叉策略
+5. kdj_oversold          - KDJ超卖超买策略
+6. macd_zero_axis        - MACD零轴策略
+7. triple_screen         - 三重滤网交易系统
+8. turtle_trading        - 海龟交易策略
+9. momentum              - 动量策略
+10. mean_reversion       - 均值回归策略
+11. donchian             - 唐奇安通道策略
+12. williams_r           - 威廉指标策略
+13. cci                  - 顺势指标策略
+14. ema_cross            - 指数均线交叉策略
+15. volume_spread        - 量价配合策略
+16. sar                  - 抛物线转向指标策略
+17. keltner              - 凯特纳通道策略
 
-【优化策略 - 19个】
+【优化策略 - 19个】（历史分类，不再区分）
 18. macd_kdj_fibonacci  - MACD+KDJ共振策略（斐波那契参数优化版）
 19. boll_rsi_optimized   - 布林带+RSI策略优化版
 20. kdj_rsi_optimized    - KDJ+RSI策略优化版
@@ -201,7 +201,7 @@ class BaseAStockStrategy(bt.Strategy):
 
 
 # ============================================================================
-# 基础策略 - 17个
+# 策略 - 36个
 # ============================================================================
 
 class MacdKdjStrategy(BaseAStockStrategy):
@@ -1083,10 +1083,6 @@ class KeltnerChannelStrategy(BaseAStockStrategy):
             if ((breakout_down or stop_loss or take_profit) and t1_ok):
                 self.order = self.sell(size=self.position.size)
 
-
-# ============================================================================
-# 优化策略 - 19个
-# ============================================================================
 
 class EmaRsiStrategy(BaseAStockStrategy):
     """双EMA+RSI过滤策略（简化版，易触发交易）"""
@@ -2517,7 +2513,6 @@ class TurtleStrategyWithFilter(BaseAStockStrategy):
 def get_strategy_class(strategy_type):
     """根据策略类型获取对应的Backtrader策略类（完整版，包含所有36个策略）"""
     strategy_map = {
-        # 【基础策略 - 17个】
         'macd_kdj': MacdKdjStrategy,
         'rsi': RsiStrategy,
         'bollinger': BollingerStrategy,
@@ -2535,7 +2530,6 @@ def get_strategy_class(strategy_type):
         'volume_spread': VolumeSpreadStrategy,
         'sar': SARStrategy,
         'keltner': KeltnerChannelStrategy,
-        # 【优化策略 - 19个】
         'macd_kdj_fibonacci': MacdKdjFibonacciStrategy,
         'boll_rsi_optimized': BollRsiOptimizedStrategy,
         'kdj_rsi_optimized': KdjRsiOptimizedStrategy,
@@ -2566,12 +2560,10 @@ def get_strategy_class(strategy_type):
 def get_all_strategy_types():
     """获取所有策略类型列表（共36个）"""
     return [
-        # 【基础策略 - 17个】
         'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
         'macd_zero_axis', 'triple_screen', 'turtle_trading', 'momentum',
         'mean_reversion', 'donchian', 'williams_r', 'cci', 'ema_cross',
         'volume_spread', 'sar', 'keltner',
-        # 【优化策略 - 19个】
         'macd_kdj_fibonacci', 'boll_rsi_optimized', 'kdj_rsi_optimized',
         'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
         'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
@@ -2581,24 +2573,13 @@ def get_all_strategy_types():
 
 
 def get_basic_strategy_types():
-    """获取基础策略类型列表（17个）"""
-    return [
-        'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-        'macd_zero_axis', 'triple_screen', 'turtle_trading', 'momentum',
-        'mean_reversion', 'donchian', 'williams_r', 'cci', 'ema_cross',
-        'volume_spread', 'sar', 'keltner',
-    ]
+    """获取策略类型列表（兼容旧接口，返回所有36个策略）"""
+    return get_all_strategy_types()
 
 
 def get_optimized_strategy_types():
-    """获取优化策略类型列表（19个）"""
-    return [
-        'macd_kdj_fibonacci', 'boll_rsi_optimized', 'kdj_rsi_optimized',
-        'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
-        'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
-        'triple_ema', 'kdj_macd_resonance', 'rsi_atr_adaptive',
-        'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite',
-    ]
+    """获取优化策略类型列表（兼容旧接口，返回空列表）"""
+    return []
 
 
 def create_strategy_with_config(strategy_type, config, override_params=None):
@@ -2644,12 +2625,8 @@ if __name__ == "__main__":
 
     # 测试策略工厂
     all_strategies = get_all_strategy_types()
-    basic_strategies = get_basic_strategy_types()
-    optimized_strategies = get_optimized_strategy_types()
 
     print(f"\n策略总数: {len(all_strategies)}")
-    print(f"  - 基础策略: {len(basic_strategies)} 个")
-    print(f"  - 优化策略: {len(optimized_strategies)} 个")
     print("-" * 80)
 
     # 测试所有策略能否正常加载
@@ -2682,12 +2659,8 @@ if __name__ == "__main__":
     print("策略列表")
     print("=" * 80)
 
-    print("\n【基础策略 - 17个】")
-    for i, s in enumerate(basic_strategies, 1):
-        print(f"  {i:2d}. {s}")
-
-    print("\n【优化策略 - 19个】")
-    for i, s in enumerate(optimized_strategies, 1):
+    print("\n【全部策略 - 36个】")
+    for i, s in enumerate(all_strategies, 1):
         print(f"  {i:2d}. {s}")
 
     print("\n" + "=" * 80)
@@ -2699,7 +2672,7 @@ if __name__ == "__main__":
 # 策略类名别名（保持命名一致性）
 # ============================================================================
 
-# 优化策略别名
+# 策略别名
 MacdWithAtr = MacdStrategyWithATR
 RsiWithTrend = RsiStrategyWithTrendFilter
 TurtleWithFilter = TurtleStrategyWithFilter

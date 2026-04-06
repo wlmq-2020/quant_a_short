@@ -606,7 +606,7 @@ class StrategyComparator:
         from datetime import datetime
 
         if strategy_types is None:
-            # 默认使用所有36个策略（基础策略 + 优化策略）
+            # 默认使用所有36个策略
             from strategy.strategy import get_all_strategy_types
             strategy_types = get_all_strategy_types()
 
