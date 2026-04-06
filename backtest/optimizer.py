@@ -290,8 +290,8 @@ class StrategyParameterOptimizer:
 
         if result:
             self.optimization_results[strategy_type] = result
-            # 更新最优参数、记录日志、更新config
-            self._update_each_strategy_best_params({strategy_type: result})
+            # 注意：不在这里调用 _update_each_strategy_best_params()
+            # 统一在 generate_optimization_report() 中调用，避免重复更新
 
         return result
 
@@ -486,25 +486,32 @@ class StrategyParameterOptimizer:
             if not result or 'best_result' not in result:
                 continue
 
-            current_return = result['best_result'].get('avg_return', -float('inf'))
+            current_return = result['best_result'].get('avg_return')
             current_params = result.get('best_params', {})
             current_sharpe = result['best_result'].get('avg_sharpe', 0)
 
             # 获取历史最优
             hist_data = historical_best.get(strategy_type, {})
-            hist_return = hist_data.get('avg_return', -float('inf'))
+            hist_return = hist_data.get('avg_return')
             status = "---"
 
-            # 如果本次收益更高，更新历史最优
-            if current_return > hist_return:
-                improvement = current_return - hist_return if hist_return != -float('inf') else current_return
+            # 辅助函数：处理 None 值的比较
+            def get_effective_return(val):
+                return val if val is not None else -float('inf')
+
+            eff_current_return = get_effective_return(current_return)
+            eff_hist_return = get_effective_return(hist_return)
+
+            # 如果本次收益更高，或者历史是None但本次有值，更新历史最优
+            if eff_current_return > eff_hist_return:
+                improvement = current_return - hist_return if (hist_return is not None and current_return is not None) else (current_return if current_return is not None else 0)
                 # 获取股票级别信息
                 best_result = result.get('best_result', {})
                 max_return = best_result.get('max_return', 0)
                 min_return = best_result.get('min_return', 0)
                 best_stock = best_result.get('best_stock', '')
                 worst_stock = best_result.get('worst_stock', '')
-                
+
                 historical_best[strategy_type] = {
                     'avg_return': current_return,
                     'avg_sharpe': current_sharpe,
@@ -519,10 +526,16 @@ class StrategyParameterOptimizer:
                 updated_count += 1
 
                 # 记录日志
-                if hist_return == -float('inf'):
-                    self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+                if hist_return is None:
+                    if current_return is not None:
+                        self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+                    else:
+                        self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 N/A, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
                 else:
-                    self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
+                    if current_return is not None:
+                        self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
+                    else:
+                        self.logger.info(f"[策略优化] 策略 {strategy_type}: 历史 {hist_return:+.2f}% → 本次 N/A, 不更新")
 
             elif strategy_type not in historical_best:
                 # 获取股票级别信息
@@ -531,7 +544,7 @@ class StrategyParameterOptimizer:
                 min_return = best_result.get('min_return', 0)
                 best_stock = best_result.get('best_stock', '')
                 worst_stock = best_result.get('worst_stock', '')
-                
+
                 historical_best[strategy_type] = {
                     'avg_return': current_return,
                     'avg_sharpe': current_sharpe,
@@ -546,11 +559,14 @@ class StrategyParameterOptimizer:
                 updated_count += 1
 
                 # 记录日志
-                self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+                self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return if current_return is not None else 'N/A':+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
             else:
                 status = "保持历史"
 
-            print(f"  {strategy_type:<20} {current_return:>+10.2f}%  {hist_return:>+10.2f}%  {status}")
+            # 格式化显示，处理 None 值
+            curr_str = f"{current_return:>+10.2f}%" if current_return is not None else "   N/A   "
+            hist_str = f"{hist_return:>+10.2f}%" if hist_return is not None else "   N/A   "
+            print(f"  {strategy_type:<20} {curr_str}  {hist_str}  {status}")
 
         print("  " + "-" * 80)
 
@@ -580,15 +596,16 @@ class StrategyParameterOptimizer:
 
         sorted_strategies = sorted(
             historical_best.items(),
-            key=lambda x: x[1].get('avg_return', -float('inf')),
+            key=lambda x: x[1].get('avg_return') if x[1].get('avg_return') is not None else -float('inf'),
             reverse=True
         )
 
         for i, (strategy_type, data) in enumerate(sorted_strategies[:5], 1):
-            ret = data.get('avg_return', 0)
+            ret = data.get('avg_return')
             sharpe = data.get('avg_sharpe', 0)
-            print(f"  {i}. {strategy_type:<20} 收益率: {ret:>+8.2f}%  夏普: {sharpe:+.3f}")
-            if i == 1:
+            ret_str = f"{ret:>+8.2f}%" if ret is not None else "   N/A  "
+            print(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe:+.3f}")
+            if i == 1 and ret is not None:
                 top_strategy = strategy_type
                 top_return = ret
                 top_data = data
@@ -596,10 +613,12 @@ class StrategyParameterOptimizer:
         print("  " + "-" * 60)
 
         if not top_strategy or not top_data:
+            print("  没有可用的最优策略，跳过更新 config.py")
             return
 
         top_params = top_data.get('best_params', {})
-        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return:+.2f}%)")
+        top_return_str = f"{top_return:+.2f}%" if top_return is not None else "N/A"
+        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return_str})")
         print(f"  最优参数: {top_params}")
 
         # 更新config.py
