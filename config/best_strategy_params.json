@@ -1,42 +1,222 @@
 {
-  "atr_stop": {
+  "macd_kdj": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "breakout_period": 15,
-      "atr_period": 12,
-      "atr_multiplier": 1.8,
-      "trail_percent": 0.08,
-      "vol_mult": 1.1,
-      "stop_loss_ratio": 0.04,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
+      "macd_fast": 8,
+      "macd_slow": 20,
+      "macd_signal": 6,
+      "kdj_n": 6,
+      "kdj_m1": 2,
+      "kdj_m2": 2,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.1
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "boll_rsi": {
+  "rsi": {
+    "avg_return": 31.29092340916664,
+    "avg_sharpe": 0.8052578654543208,
+    "best_params": {
+      "rsi_period": 7,
+      "rsi_overbought": 65,
+      "rsi_oversold": 30,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 01:50:24"
+  },
+  "bollinger": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "boll_period": 15,
-      "bb_std": 1.8,
-      "rsi_period": 12,
-      "rsi_oversold": 30,
-      "rsi_overbought": 65,
-      "stop_loss_mult": 0.96,
-      "stop_loss_ratio": 0.04,
+      "bb_period": 15,
+      "bb_std": 2.0,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "ma_cross": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ma_fast": 5,
+      "ma_slow": 20,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "kdj_oversold": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "kdj_n": 6,
+      "kdj_m1": 2,
+      "kdj_m2": 2,
+      "oversold_threshold": 20,
+      "overbought_threshold": 80,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.12
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "macd_zero_axis": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "macd_fast": 12,
+      "macd_slow": 20,
+      "macd_signal": 6,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "triple_screen": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "trend_period": 20,
+      "stoch_period": 14,
+      "oversold_threshold": 25,
+      "overbought_threshold": 65,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.08
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "turtle_trading": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "entry_period": 15,
+      "exit_period": 10,
+      "atr_period": 14,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.12
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "momentum": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "momentum_period": 7,
+      "momentum_threshold": 0.02,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "mean_reversion": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ma_period": 15,
+      "std_threshold": 1.2,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "donchian": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "donchian_period": 15,
+      "exit_period": 10,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.12
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "williams_r": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "williams_period": 14,
+      "oversold": -80,
+      "overbought": -20,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "cci": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "cci_period": 15,
+      "cci_oversold": -100,
+      "cci_overbought": 80,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "ema_cross": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ema_fast": 8,
+      "ema_slow": 20,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.12
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "volume_spread": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ma_short": 3,
+      "ma_long": 15,
+      "volume_ma_period": 15,
+      "volume_multiplier": 1.5,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "sar": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "sar_af": 0.015,
+      "sar_max_af": 0.15,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.15
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "keltner": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "kc_period": 15,
+      "kc_multiplier": 2.0,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.1
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "macd_kdj_fibonacci": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "macd_fast": 8,
+      "macd_slow": 21,
+      "macd_signal": 5,
+      "kdj_n": 6,
+      "kdj_m1": 2,
+      "kdj_m2": 2,
+      "stop_loss_ratio": 0.05,
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
   "boll_rsi_optimized": {
     "avg_return": null,
@@ -51,83 +231,87 @@
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "bollinger": {
-    "avg_return": 5.96878233825,
-    "avg_sharpe": -0.05872979934257414,
-    "best_params": {
-      "bb_period": 20,
-      "bb_std": 2.5,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 16:39:30",
-    "max_return": 5.96878233825,
-    "min_return": 5.96878233825,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "cci": {
-    "avg_return": 4.002589246000002,
-    "avg_sharpe": -0.39117798722671304,
-    "best_params": {
-      "cci_period": 15,
-      "cci_oversold": -120,
-      "cci_overbought": 80,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 18:11:41",
-    "max_return": 4.002589246000002,
-    "min_return": 4.002589246000002,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "composite": {
+  "kdj_rsi_optimized": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "ema_short": 18,
-      "ema_long": 55,
-      "macd_fast": 10,
-      "macd_slow": 24,
-      "macd_signal": 8,
-      "rsi_period": 12,
-      "rsi_oversold": 28,
-      "rsi_recovery": 38,
-      "rsi_overbought": 68,
-      "atr_period": 12,
-      "atr_multiplier": 2.2,
-      "vol_mult": 1.2,
+      "kdj_n": 9,
+      "kdj_m1": 3,
+      "kdj_m2": 3,
+      "rsi_period": 14,
+      "rsi_overbought": 65,
+      "rsi_oversold": 30,
+      "k_oversold": 20,
+      "k_overbought": 75,
       "stop_loss_ratio": 0.04,
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "donchian": {
-    "avg_return": 5.629157249000001,
-    "avg_sharpe": -0.1749637612068725,
+  "macd_with_atr": {
+    "avg_return": null,
+    "avg_sharpe": null,
     "best_params": {
-      "donchian_period": 15,
-      "exit_period": 10,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.15
+      "macd_fast": 8,
+      "macd_slow": 20,
+      "macd_signal": 6,
+      "atr_period": 10,
+      "atr_multiplier": 1.5,
+      "volume_ma_period": 15,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.75
     },
-    "updated_at": "2026-04-05 17:48:11",
-    "max_return": 5.629157249000001,
-    "min_return": 5.629157249000001,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "rsi_with_trend": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "rsi_period": 10,
+      "rsi_overbought": 65,
+      "rsi_oversold": 25,
+      "ma_period": 15,
+      "bb_period": 15,
+      "bb_std": 1.8,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.75
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "turtle_with_filter": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "entry_period": 15,
+      "exit_period": 8,
+      "atr_period": 10,
+      "atr_multiplier": 1.5,
+      "volume_ma_period": 15,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.75
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "ema_rsi": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ema_short": 15,
+      "ema_long": 50,
+      "rsi_period": 12,
+      "rsi_overbought": 65,
+      "rsi_oversold": 25,
+      "stop_loss_ratio": 0.06,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.75
+    },
+    "updated_at": "2026-04-06 00:13:07"
   },
   "dual_macd": {
     "avg_return": null,
@@ -149,45 +333,66 @@
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "ema_cross": {
-    "avg_return": 10.827809206200001,
-    "avg_sharpe": -0.09042635498729944,
-    "best_params": {
-      "ema_fast": 8,
-      "ema_slow": 20,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.15
-    },
-    "updated_at": "2026-04-05 18:19:12",
-    "max_return": 10.827809206200001,
-    "min_return": 10.827809206200001,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "ema_rsi": {
+  "macd": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "ema_short": 15,
-      "ema_long": 50,
-      "rsi_period": 12,
-      "rsi_overbought": 65,
-      "rsi_oversold": 25,
+      "macd_fast": 10,
+      "macd_slow": 24,
+      "macd_signal": 8,
       "stop_loss_ratio": 0.06,
       "take_profit_ratio": 0.12,
       "position_ratio": 0.75
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "boll_rsi": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "boll_period": 15,
+      "bb_std": 1.8,
+      "rsi_period": 12,
+      "rsi_oversold": 30,
+      "rsi_overbought": 65,
+      "stop_loss_mult": 0.96,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.8
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "turtle_breakout": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "entry_period": 15,
+      "exit_period": 8,
+      "atr_period": 10,
+      "atr_mult": 1.5,
+      "vol_mult": 1.2,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.8
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "triple_ema": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ema_short": 5,
+      "ema_mid": 20,
+      "ema_long": 50,
+      "vol_period": 15,
+      "vol_mult": 1.0,
+      "stop_loss_ratio": 0.05,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.8
+    },
+    "updated_at": "2026-04-06 00:13:07"
   },
   "kdj_macd_resonance": {
     "avg_return": null,
@@ -205,275 +410,7 @@
       "take_profit_ratio": 0.15,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "kdj_oversold": {
-    "avg_return": 4.778151560255102,
-    "avg_sharpe": -0.4986921448715579,
-    "best_params": {
-      "kdj_n": 9,
-      "kdj_m1": 3,
-      "kdj_m2": 3,
-      "oversold_threshold": 25,
-      "overbought_threshold": 85,
-      "stop_loss_ratio": 0.08,
-      "take_profit_ratio": 0.12
-    },
-    "updated_at": "2026-04-05 18:06:31",
-    "max_return": 4.778151560255102,
-    "min_return": 4.778151560255102,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "kdj_rsi": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "kdj_n": 7,
-      "kdj_m1": 2,
-      "kdj_m2": 2,
-      "rsi_period": 12,
-      "rsi_oversold": 28,
-      "rsi_overbought": 68,
-      "k_oversold": 18,
-      "k_overbought": 78,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "kdj_rsi_optimized": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "kdj_n": 9,
-      "kdj_m1": 3,
-      "kdj_m2": 3,
-      "rsi_period": 14,
-      "rsi_overbought": 65,
-      "rsi_oversold": 30,
-      "k_oversold": 20,
-      "k_overbought": 75,
-      "stop_loss_ratio": 0.04,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "keltner": {
-    "avg_return": 6.27434213455,
-    "avg_sharpe": -0.33638017456578767,
-    "best_params": {
-      "kc_period": 20,
-      "kc_multiplier": 2.5,
-      "stop_loss_ratio": 0.08,
-      "take_profit_ratio": 0.1
-    },
-    "updated_at": "2026-04-05 18:30:49"
-  },
-  "ma_cross": {
-    "avg_return": 8.829251420299997,
-    "avg_sharpe": -0.5334246856557843,
-    "best_params": {
-      "ma_fast": 5,
-      "ma_slow": 25,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 16:41:32",
-    "max_return": 8.829251420299997,
-    "min_return": 8.829251420299997,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "ma_volume": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "ma_short": 8,
-      "ma_long": 25,
-      "ma_trend": 50,
-      "vol_period": 15,
-      "vol_mult": 1.3,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "macd_fast": 10,
-      "macd_slow": 24,
-      "macd_signal": 8,
-      "stop_loss_ratio": 0.06,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.75
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd_boll": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "macd_fast": 10,
-      "macd_slow": 24,
-      "macd_signal": 8,
-      "boll_period": 18,
-      "bb_std": 1.8,
-      "stop_loss_ratio": 0.04,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd_kdj": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "macd_fast": 8,
-      "macd_slow": 20,
-      "macd_signal": 6,
-      "kdj_n": 6,
-      "kdj_m1": 2,
-      "kdj_m2": 2,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.1
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd_kdj_fibonacci": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "macd_fast": 8,
-      "macd_slow": 21,
-      "macd_signal": 5,
-      "kdj_n": 6,
-      "kdj_m1": 2,
-      "kdj_m2": 2,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.8
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd_with_atr": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "macd_fast": 8,
-      "macd_slow": 20,
-      "macd_signal": 6,
-      "atr_period": 10,
-      "atr_multiplier": 1.5,
-      "volume_ma_period": 15,
-      "stop_loss_ratio": 0.04,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.75
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "macd_zero_axis": {
-    "avg_return": 6.350310562999998,
-    "avg_sharpe": -0.5430768558470273,
-    "best_params": {
-      "macd_fast": 16,
-      "macd_slow": 20,
-      "macd_signal": 9,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 17:01:13",
-    "max_return": 6.350310562999998,
-    "min_return": 6.350310562999998,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "mean_reversion": {
-    "avg_return": 5.597371270749999,
-    "avg_sharpe": 0.011369670594771827,
-    "best_params": {
-      "ma_period": 20,
-      "std_threshold": 1.2,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 17:50:00",
-    "max_return": 5.597371270749999,
-    "min_return": 5.597371270749999,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "momentum": {
-    "avg_return": 5.779985208,
-    "avg_sharpe": -0.12805633758633472,
-    "best_params": {
-      "momentum_period": 10,
-      "momentum_threshold": 0.02,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 17:36:33",
-    "max_return": 5.779985208,
-    "min_return": 5.779985208,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "rsi": {
-    "avg_return": 22.218644726249998,
-    "avg_sharpe": 0.8174143333912807,
-    "best_params": {
-      "rsi_period": 14,
-      "rsi_overbought": 70,
-      "rsi_oversold": 30,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.15
-    },
-    "updated_at": "2026-04-01 02:28:10",
-    "max_return": 22.218644726249998,
-    "min_return": 22.218644726249998,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
   "rsi_atr_adaptive": {
     "avg_return": null,
@@ -494,164 +431,92 @@
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "rsi_with_trend": {
+  "macd_boll": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "rsi_period": 10,
-      "rsi_overbought": 65,
-      "rsi_oversold": 25,
-      "ma_period": 15,
-      "bb_period": 15,
+      "macd_fast": 10,
+      "macd_slow": 24,
+      "macd_signal": 8,
+      "boll_period": 18,
       "bb_std": 1.8,
       "stop_loss_ratio": 0.04,
       "take_profit_ratio": 0.12,
-      "position_ratio": 0.75
+      "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "sar": {
-    "avg_return": 8.316791617500007,
-    "avg_sharpe": -0.10378048841939831,
-    "best_params": {
-      "sar_af": 0.015,
-      "sar_max_af": 0.15,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 18:23:05",
-    "max_return": 8.316791617500007,
-    "min_return": 8.316791617500007,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "triple_ema": {
+  "kdj_rsi": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "ema_short": 5,
-      "ema_mid": 20,
-      "ema_long": 50,
+      "kdj_n": 7,
+      "kdj_m1": 2,
+      "kdj_m2": 2,
+      "rsi_period": 12,
+      "rsi_oversold": 28,
+      "rsi_overbought": 68,
+      "k_oversold": 18,
+      "k_overbought": 78,
+      "stop_loss_ratio": 0.03,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.8
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "ma_volume": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ma_short": 8,
+      "ma_long": 25,
+      "ma_trend": 50,
       "vol_period": 15,
-      "vol_mult": 1.0,
+      "vol_mult": 1.3,
       "stop_loss_ratio": 0.05,
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   },
-  "triple_screen": {
-    "avg_return": -0.21990823700000006,
-    "avg_sharpe": -0.6000962372651255,
-    "best_params": {
-      "trend_period": 25,
-      "stoch_period": 18,
-      "oversold_threshold": 25,
-      "overbought_threshold": 70,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.08
-    },
-    "updated_at": "2026-04-05 17:36:54",
-    "max_return": -0.21990823700000006,
-    "min_return": -0.21990823700000006,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "turtle_breakout": {
+  "atr_stop": {
     "avg_return": null,
     "avg_sharpe": null,
     "best_params": {
-      "entry_period": 15,
-      "exit_period": 8,
-      "atr_period": 10,
-      "atr_mult": 1.5,
+      "breakout_period": 15,
+      "atr_period": 12,
+      "atr_multiplier": 1.8,
+      "trail_percent": 0.08,
+      "vol_mult": 1.1,
+      "stop_loss_ratio": 0.04,
+      "take_profit_ratio": 0.12,
+      "position_ratio": 0.8
+    },
+    "updated_at": "2026-04-06 00:13:07"
+  },
+  "composite": {
+    "avg_return": null,
+    "avg_sharpe": null,
+    "best_params": {
+      "ema_short": 18,
+      "ema_long": 55,
+      "macd_fast": 10,
+      "macd_slow": 24,
+      "macd_signal": 8,
+      "rsi_period": 12,
+      "rsi_oversold": 28,
+      "rsi_recovery": 38,
+      "rsi_overbought": 68,
+      "atr_period": 12,
+      "atr_multiplier": 2.2,
       "vol_mult": 1.2,
       "stop_loss_ratio": 0.04,
       "take_profit_ratio": 0.12,
       "position_ratio": 0.8
     },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "turtle_trading": {
-    "avg_return": 5.170799002699999,
-    "avg_sharpe": -0.10020000924141702,
-    "best_params": {
-      "entry_period": 15,
-      "exit_period": 10,
-      "atr_period": 14,
-      "stop_loss_ratio": 0.05,
-      "take_profit_ratio": 0.15
-    },
-    "updated_at": "2026-04-05 17:25:41",
-    "max_return": 5.170799002699999,
-    "min_return": 5.170799002699999,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "turtle_with_filter": {
-    "avg_return": null,
-    "avg_sharpe": null,
-    "best_params": {
-      "entry_period": 15,
-      "exit_period": 8,
-      "atr_period": 10,
-      "atr_multiplier": 1.5,
-      "volume_ma_period": 15,
-      "stop_loss_ratio": 0.04,
-      "take_profit_ratio": 0.12,
-      "position_ratio": 0.75
-    },
-    "updated_at": "2026-04-06 03:15:27",
-    "max_return": null,
-    "min_return": null,
-    "best_stock": "",
-    "worst_stock": ""
-  },
-  "volume_spread": {
-    "avg_return": 6.804808085199993,
-    "avg_sharpe": -0.1497431277098639,
-    "best_params": {
-      "ma_short": 3,
-      "ma_long": 20,
-      "volume_ma_period": 20,
-      "volume_multiplier": 1.5,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 18:58:48"
-  },
-  "williams_r": {
-    "avg_return": 5.943883414149996,
-    "avg_sharpe": -0.2636969484613519,
-    "best_params": {
-      "williams_period": 14,
-      "oversold": -80,
-      "overbought": -25,
-      "stop_loss_ratio": 0.03,
-      "take_profit_ratio": 0.2
-    },
-    "updated_at": "2026-04-05 18:10:04",
-    "max_return": 5.943883414149996,
-    "min_return": 5.943883414149996,
-    "best_stock": "",
-    "worst_stock": ""
+    "updated_at": "2026-04-06 00:13:07"
   }
 }
+

@@ -93,10 +93,6 @@ class Config:
         "sz300274",  # 阳光电源
     ]
 
-    # 回测时间范围（最近3年）
-    START_DATE = "20230329"
-    END_DATE = "20260329"
-
     # K线周期："daily" (日线), "60min" (60分钟线)
     KLINE_PERIOD = "daily"
 
@@ -122,25 +118,6 @@ class Config:
     # ========== 策略配置 ==========
     # 策略类型（共36种量化策略，统一管理不再区分基础和优化）
     STRATEGY_TYPE = "rsi"
-
-    # MACD参数 (优化后)
-    MACD_FAST = 16
-    MACD_SLOW = 20
-    MACD_SIGNAL = 9
-
-    # KDJ参数 (优化后)
-    KDJ_N = 9
-    KDJ_M1 = 2
-    KDJ_M2 = 3
-
-    # RSI参数 (优化后)
-    RSI_PERIOD = 14
-    RSI_OVERBOUGHT = 70
-    RSI_OVERSOLD = 30
-
-    # 布林带参数 (优化后)
-    BOLLINGER_PERIOD = 20
-    BOLLINGER_STD = 2.5
 
     # 成交量过滤：True表示启用
     VOLUME_FILTER = True
