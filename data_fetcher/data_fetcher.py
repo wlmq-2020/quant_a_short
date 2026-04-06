@@ -38,6 +38,55 @@ class AStockDataFetcher:
             self.logger.critical("akshare 和 baostock 库均未安装，无法获取真实A股数据！")
             raise ImportError("请至少安装一个数据源库: pip install akshare baostock")
 
+    def _try_fetch_data_from_sources(self, stock_code, start_date, end_date, period, operation_desc="获取"):
+        """
+        统一的数据源获取方法：先尝试akshare，失败后尝试baostock
+
+        参数:
+            stock_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            period: K线周期
+            operation_desc: 日志描述（获取/更新）
+
+        返回:
+            (df, last_error): (DataFrame或None, 最后一个异常或None)
+        """
+        df = None
+        last_error = None
+
+        # 首选数据源：akshare
+        if AK_AVAILABLE:
+            try:
+                self.logger.info(f"尝试使用 akshare {operation_desc}: {stock_code}")
+                df = self._fetch_from_akshare(stock_code, start_date, end_date, period)
+                if df is not None and not df.empty:
+                    self.logger.info(f"akshare {operation_desc}成功: {stock_code}")
+                else:
+                    df = None
+                    self.logger.warning(f"akshare 返回空数据，尝试备用数据源")
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"akshare {operation_desc}失败: {str(e)}，尝试备用数据源")
+                df = None
+
+        # 备用数据源：baostock（仅支持日线）
+        if df is None and BAOSTOCK_AVAILABLE and period == 'daily':
+            try:
+                self.logger.info(f"尝试使用 baostock {operation_desc}: {stock_code}")
+                df = self._fetch_from_baostock(stock_code, start_date, end_date)
+                if df is not None and not df.empty:
+                    self.logger.info(f"baostock {operation_desc}成功: {stock_code}")
+                else:
+                    df = None
+                    self.logger.warning(f"baostock 返回空数据")
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"baostock {operation_desc}失败: {str(e)}")
+                df = None
+
+        return df, last_error
+
     def fetch_stock_data(self, stock_code, start_date, end_date, period='daily'):
         """
         下载单个股票数据
@@ -59,38 +108,8 @@ class AStockDataFetcher:
             self.logger.info(f"本地数据已存在，跳过下载: {stock_code}")
             return self.load_data(stock_code, period)
 
-        df = None
-        last_error = None
-
-        # 首选数据源：akshare
-        if AK_AVAILABLE:
-            try:
-                self.logger.info(f"尝试使用 akshare 数据源: {stock_code}")
-                df = self._fetch_from_akshare(stock_code, start_date, end_date, period)
-                if df is not None and not df.empty:
-                    self.logger.info(f"akshare 数据源获取成功: {stock_code}")
-                else:
-                    df = None
-                    self.logger.warning(f"akshare 返回空数据，尝试备用数据源")
-            except Exception as e:
-                last_error = e
-                self.logger.warning(f"akshare 数据源失败: {str(e)}，尝试备用数据源")
-                df = None
-
-        # 备用数据源：baostock（仅支持日线）
-        if df is None and BAOSTOCK_AVAILABLE and period == 'daily':
-            try:
-                self.logger.info(f"尝试使用 baostock 数据源: {stock_code}")
-                df = self._fetch_from_baostock(stock_code, start_date, end_date)
-                if df is not None and not df.empty:
-                    self.logger.info(f"baostock 数据源获取成功: {stock_code}")
-                else:
-                    df = None
-                    self.logger.warning(f"baostock 返回空数据")
-            except Exception as e:
-                last_error = e
-                self.logger.warning(f"baostock 数据源失败: {str(e)}")
-                df = None
+        # 使用统一的数据源获取方法
+        df, last_error = self._try_fetch_data_from_sources(stock_code, start_date, end_date, period, "获取")
 
         # 检查是否成功获取数据
         if df is not None and not df.empty:
@@ -155,39 +174,8 @@ class AStockDataFetcher:
 
             self.logger.info(f"更新数据范围: {update_start} 到 {update_end}")
 
-            # 获取新数据（使用多数据源支持）
-            new_df = None
-            last_error = None
-
-            # 首选数据源：akshare
-            if AK_AVAILABLE:
-                try:
-                    self.logger.info(f"尝试使用 akshare 更新: {stock_code}")
-                    new_df = self._fetch_from_akshare(stock_code, update_start, update_end, period)
-                    if new_df is not None and not new_df.empty:
-                        self.logger.info(f"akshare 更新成功: {stock_code}")
-                    else:
-                        new_df = None
-                        self.logger.warning(f"akshare 返回空数据，尝试备用数据源")
-                except Exception as e:
-                    last_error = e
-                    self.logger.warning(f"akshare 更新失败: {str(e)}，尝试备用数据源")
-                    new_df = None
-
-            # 备用数据源：baostock（仅支持日线）
-            if new_df is None and BAOSTOCK_AVAILABLE and period == 'daily':
-                try:
-                    self.logger.info(f"尝试使用 baostock 更新: {stock_code}")
-                    new_df = self._fetch_from_baostock(stock_code, update_start, update_end)
-                    if new_df is not None and not new_df.empty:
-                        self.logger.info(f"baostock 更新成功: {stock_code}")
-                    else:
-                        new_df = None
-                        self.logger.warning(f"baostock 返回空数据")
-                except Exception as e:
-                    last_error = e
-                    self.logger.warning(f"baostock 更新失败: {str(e)}")
-                    new_df = None
+            # 使用统一的数据源获取方法
+            new_df, last_error = self._try_fetch_data_from_sources(stock_code, update_start, update_end, period, "更新")
 
             if new_df is not None and not new_df.empty:
                 # 清洗和标准化新数据

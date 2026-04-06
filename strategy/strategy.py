@@ -121,6 +121,84 @@ class BaseAStockStrategy(bt.Strategy):
         """策略结束"""
         pass
 
+    def calculate_position_size(self):
+        """
+        计算买入仓位大小（通用方法）
+
+        返回:
+            int: 买入数量
+        """
+        cash = self.broker.getcash()
+        position_value = cash * self.p.position_ratio
+        size = int(position_value // self.dataclose[0])
+        return size if size > 0 else 0
+
+    def check_t1_rule(self):
+        """
+        检查T+1规则是否满足（通用方法）
+
+        返回:
+            bool: True表示可以卖出
+        """
+        if not self.p.t1_rule:
+            return True
+        if not self.position_entry_date:
+            return False
+        days_held = (self.datas[0].datetime.date(0) - self.position_entry_date).days
+        return days_held >= 1
+
+    def calculate_profit_pct(self):
+        """
+        计算当前持仓收益率（通用方法）
+
+        返回:
+            float: 收益率百分比
+        """
+        if not self.position_entry_price or self.position_entry_price <= 0:
+            return 0.0
+        current_price = self.dataclose[0]
+        return (current_price - self.position_entry_price) / self.position_entry_price
+
+    def check_stop_loss(self):
+        """
+        检查是否触发止损（通用方法）
+
+        返回:
+            bool: True表示触发止损
+        """
+        profit_pct = self.calculate_profit_pct()
+        return profit_pct <= -self.p.stop_loss_ratio
+
+    def check_take_profit(self):
+        """
+        检查是否触发止盈（通用方法）
+
+        返回:
+            bool: True表示触发止盈
+        """
+        profit_pct = self.calculate_profit_pct()
+        return profit_pct >= self.p.take_profit_ratio
+
+    def check_volume_filter(self, volume_ma=None):
+        """
+        检查成交量过滤条件（通用方法）
+
+        参数:
+            volume_ma: 成交量均线值，None则使用默认10日均线
+
+        返回:
+            bool: True表示成交量满足条件
+        """
+        if not self.p.volume_filter:
+            return True
+        if volume_ma is None:
+            # 如果没有提供均线，使用默认10日均线
+            if not hasattr(self, 'volume_ma10'):
+                from backtrader.indicators import SimpleMovingAverage
+                self.volume_ma10 = SimpleMovingAverage(self.datavolume, period=10)
+            volume_ma = self.volume_ma10[0]
+        return self.datavolume[0] >= volume_ma * self.p.volume_ratio
+
 
 # ============================================================================
 # 基础策略 - 17个

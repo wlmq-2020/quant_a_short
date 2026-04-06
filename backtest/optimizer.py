@@ -131,21 +131,10 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
     返回:
         dict: 策略优化结果
     """
-    from itertools import product
-
     print(f"\n[优化] 开始优化策略: {strategy_type}")
 
-    # 生成参数组合
-    def generate_param_combinations(param_space):
-        if not param_space:
-            return []
-        keys = list(param_space.keys())
-        values = list(param_space.values())
-        combinations = []
-        for combo in product(*values):
-            param_dict = dict(zip(keys, combo))
-            combinations.append(param_dict)
-        return combinations
+    # 从 param_space.py 导入统一的参数组合生成函数
+    from strategy.param_space import generate_param_combinations
 
     param_combinations = generate_param_combinations(param_space_dict)
     print(f"  参数组合数量: {len(param_combinations)}")
