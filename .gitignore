@@ -10,6 +10,9 @@ reports/
 temp/
 *.tmp
 *.log
+tmp/
+MagicMock/
+mock*/
 
 # 日志文件
 logs/

@@ -9,9 +9,15 @@ from unittest.mock import patch, MagicMock, mock_open
 from pathlib import Path
 import sys
 import json
+import tempfile
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
+def get_test_temp_dir():
+    """获取跨平台的临时目录"""
+    return Path(tempfile.gettempdir()) / "test_quant_log"
 
 
 class TestGlobalLogger(unittest.TestCase):
@@ -29,9 +35,10 @@ class TestGlobalLogger(unittest.TestCase):
         """测试单例模式"""
         from logger.logger import GlobalLogger
 
-        # 创建两个实例
-        logger1 = GlobalLogger(log_dir=Path('/tmp/test_log1'))
-        logger2 = GlobalLogger(log_dir=Path('/tmp/test_log2'))
+        # 创建两个实例（使用跨平台临时路径）
+        test_dir = get_test_temp_dir()
+        logger1 = GlobalLogger(log_dir=test_dir / "test_log1")
+        logger2 = GlobalLogger(log_dir=test_dir / "test_log2")
 
         # 应该是同一个实例
         self.assertIs(logger1, logger2)
@@ -78,7 +85,8 @@ class TestProgressLogger(unittest.TestCase):
         """测试 ProgressLogger 初始化"""
         from logger.progress_logger import ProgressLogger
 
-        logger = ProgressLogger(Path('/tmp/test_log'), 'test_task')
+        test_dir = get_test_temp_dir()
+        logger = ProgressLogger(test_dir / "test_log", 'test_task')
 
         self.assertTrue(hasattr(logger, 'update'))
         self.assertTrue(hasattr(logger, 'info'))
@@ -92,7 +100,8 @@ class TestProgressLogger(unittest.TestCase):
         """测试 ProgressLogger 写入日志"""
         from logger.progress_logger import ProgressLogger
 
-        logger = ProgressLogger(Path('/tmp/test_log'), 'test_task')
+        test_dir = get_test_temp_dir()
+        logger = ProgressLogger(test_dir / "test_log", 'test_task')
 
         # 测试 update
         logger.update(1, 10, '测试进度')
@@ -130,7 +139,8 @@ class TestProgressLogger(unittest.TestCase):
         })
 
         # 测试获取最新进度
-        progress = ProgressLogger.get_latest_progress(Path('/tmp/test_log'), 'test_task')
+        test_dir = get_test_temp_dir()
+        progress = ProgressLogger.get_latest_progress(test_dir / "test_log", 'test_task')
         # 注意：这里不严格验证返回值，因为mock比较复杂，只验证函数存在可调用
         self.assertTrue(callable(ProgressLogger.get_latest_progress))
 
@@ -147,7 +157,8 @@ class TestProgressLogger(unittest.TestCase):
 
         # 直接调用函数（不会有实际输出，因为没有日志文件）
         try:
-            ProgressLogger.print_progress_summary(Path('/tmp/test_log'), 'test_task')
+            test_dir = get_test_temp_dir()
+            ProgressLogger.print_progress_summary(test_dir / "test_log", 'test_task')
             self.assertTrue(True)
         except Exception as e:
             self.fail(f"print_progress_summary 调用失败: {e}")
@@ -157,7 +168,8 @@ class TestProgressLogger(unittest.TestCase):
         """测试 get_log_file 方法"""
         from logger.progress_logger import ProgressLogger
 
-        logger = ProgressLogger(Path('/tmp/test_log'), 'test_task')
+        test_dir = get_test_temp_dir()
+        logger = ProgressLogger(test_dir / "test_log", 'test_task')
         log_file = logger.get_log_file()
 
         self.assertIsInstance(log_file, Path)
