@@ -7,7 +7,7 @@
 - 股票级: ThreadPoolExecutor (16线程) - 已在backtester.py中实现
 
 【强制规则】
-每次执行优化时，必须先读取 temp/best_strategy_params.json 历史最优记录
+每次执行优化时，必须先读取 config/best_strategy_params.json 历史最优记录
 只记录和更新历史最高收益的参数，只有当次批跑收益 > 历史最高收益时才更新
 永远保留历史最高收益的参数，不允许随便替换，否则所有批跑都是无意义的
 所有日志必须使用公共组件logger模块，严禁使用print语句
@@ -16,7 +16,6 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-import copy
 import json
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
