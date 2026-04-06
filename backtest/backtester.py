@@ -610,7 +610,7 @@ class StrategyComparator:
             from strategy.strategy import get_all_strategy_types
             strategy_types = get_all_strategy_types()
 
-        print("\n[2/4] 开始测试策略...")
+        self.logger.info("[2/4] 开始测试策略")
 
         # 记录整体开始时间
         overall_start_time = datetime.now()
@@ -626,7 +626,7 @@ class StrategyComparator:
         strategy_timings = {}
 
         max_processes = min(multiprocessing.cpu_count(), 2)
-        print(f"  使用 {max_processes} 个进程并发执行策略...")
+        self.logger.info(f"使用 {max_processes} 个进程并发执行策略")
 
         with ProcessPoolExecutor(max_workers=max_processes) as executor:
             # 提交所有策略任务
@@ -659,18 +659,12 @@ class StrategyComparator:
                         'duration': result['duration']
                     }
 
-                    print(f"  [{completed}/{total}] 策略 {strategy_type} 完成，"
-                          f"测试 {len(result['results'])} 只股票，"
-                          f"耗时: {result['duration']}")
-                    self.logger.info(f"策略 {strategy_type} 完成，"
+                    self.logger.info(f"[{completed}/{total}] 策略 {strategy_type} 完成，"
                                     f"测试 {len(result['results'])} 只股票，"
                                     f"耗时: {result['duration']}")
 
                 except Exception as e:
-                    print(f"  [{completed}/{total}] 策略 {strategy_type} 失败: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    self.logger.warning(f"策略 {strategy_type} 失败: {str(e)}")
+                    self.logger.warning(f"[{completed}/{total}] 策略 {strategy_type} 失败: {str(e)}")
 
         # 记录整体结束时间
         overall_end_time = datetime.now()
