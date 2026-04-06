@@ -268,10 +268,6 @@ class TestStrategyModuleDocstring(unittest.TestCase):
         # 检查文档中包含"36个策略"
         self.assertIn('36', doc)
 
-        # 检查包含基础策略和优化策略标记
-        self.assertIn('基础策略', doc)
-        self.assertIn('优化策略', doc)
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,8 +13,12 @@ class Config:
     """全局配置类"""
 
     # ========== 项目路径配置 ==========
-    # 项目根目录
-    PROJECT_ROOT = Path(__file__).parent
+    # 项目根目录（兼容 config.py 在根目录或 config/ 目录的情况）
+    _file_path = Path(__file__)
+    if _file_path.parent.name == "config":
+        PROJECT_ROOT = _file_path.parent.parent
+    else:
+        PROJECT_ROOT = _file_path.parent
 
     # 各目录路径
     LOG_DIR = PROJECT_ROOT / "logs"
