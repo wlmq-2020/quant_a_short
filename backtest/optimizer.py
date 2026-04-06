@@ -279,10 +279,95 @@ class StrategyParameterOptimizer:
 
         if result:
             self.optimization_results[strategy_type] = result
-            # 注意：不在这里调用 _update_each_strategy_best_params()
-            # 统一在 generate_optimization_report() 中调用，避免重复更新
+            # 每优化完一个策略立即更新最优参数
+            self._update_single_strategy_best_params(strategy_type, result)
 
         return result
+
+    def _update_single_strategy_best_params(self, strategy_type, result):
+        """
+        更新单个策略的最优参数（立即更新）
+
+        参数:
+            strategy_type: 策略类型
+            result: 优化结果
+        """
+        best_params_file = self.config.CONFIG_DIR / "best_strategy_params.json"
+
+        # 兼容旧路径：如果temp目录有旧文件，迁移到config目录
+        old_params_file = self.temp_dir / "best_strategy_params.json"
+        if old_params_file.exists() and not best_params_file.exists():
+            try:
+                import shutil
+                shutil.move(str(old_params_file), str(best_params_file))
+                self.logger.info(f"  已迁移旧参数文件到: {best_params_file}")
+            except Exception as e:
+                self.logger.warning(f"  迁移旧参数文件失败: {e}")
+
+        # 1. 加载历史最优参数
+        historical_best = {}
+        if best_params_file.exists():
+            try:
+                with open(best_params_file, 'r', encoding='utf-8') as f:
+                    historical_best = json.load(f)
+            except Exception as e:
+                self.logger.warning(f"  读取历史最优参数失败: {e}")
+
+        # 2. 对比并更新该策略的最优参数
+        if not result or 'best_result' not in result:
+            return
+
+        current_return = result['best_result'].get('avg_return')
+        current_params = result.get('best_params', {})
+        current_sharpe = result['best_result'].get('avg_sharpe', 0)
+
+        # 获取历史最优
+        hist_data = historical_best.get(strategy_type, {})
+        hist_return = hist_data.get('avg_return')
+
+        # 辅助函数：处理 None 值的比较
+        def get_effective_return(val):
+            return val if val is not None else -float('inf')
+
+        eff_current_return = get_effective_return(current_return)
+        eff_hist_return = get_effective_return(hist_return)
+
+        # 只有当本次收益 > 历史收益时才更新
+        if eff_current_return > eff_hist_return:
+            improvement = current_return - hist_return if (hist_return is not None and current_return is not None) else (current_return if current_return is not None else 0)
+            # 获取股票级别信息
+            best_result = result.get('best_result', {})
+            max_return = best_result.get('max_return', 0)
+            min_return = best_result.get('min_return', 0)
+            best_stock = best_result.get('best_stock', '')
+            worst_stock = best_result.get('worst_stock', '')
+
+            historical_best[strategy_type] = {
+                'avg_return': current_return,
+                'avg_sharpe': current_sharpe,
+                'max_return': max_return,
+                'min_return': min_return,
+                'best_stock': best_stock,
+                'worst_stock': worst_stock,
+                'best_params': current_params,
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+            if hist_return is None:
+                self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}")
+            else:
+                self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%)")
+
+            # 3. 立即保存更新后的历史最优参数
+            try:
+                best_params_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(best_params_file, 'w', encoding='utf-8') as f:
+                    json.dump(historical_best, f, ensure_ascii=False, indent=2)
+                self.logger.info(f"  最优参数已即时更新: {best_params_file}")
+            except Exception as e:
+                self.logger.error(f"  保存最优参数失败: {e}")
+        else:
+            self.logger.info(f"[策略优化] 策略 {strategy_type}: 本次收益未超越历史最优，不更新")
 
     def optimize_all_strategies(self, stock_data, strategy_types=None, optimization_metric='composite_score'):
         """
@@ -429,8 +514,8 @@ class StrategyParameterOptimizer:
 
         self.logger.info(f"优化对比报告已保存: {report_path}")
 
-        # 每个策略更新自己的最优参数（滚动更新）
-        self._update_each_strategy_best_params(optimized_results)
+        # 注意：最优参数已在每个策略优化完成时即时更新
+        # 这里不再需要统一调用 _update_each_strategy_best_params()
 
         return str(report_path)
 
