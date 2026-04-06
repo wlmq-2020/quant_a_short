@@ -200,6 +200,39 @@ class AStockDataFetcher:
                 combined_df = combined_df.drop_duplicates(subset=['date'])
                 combined_df = combined_df.sort_values('date').reset_index(drop=True)
 
+                # 重新计算新增部分的 amplitude/pct_chg/change（使用完整数据计算）
+                # 找到本地数据的最后一行索引
+                local_last_idx = len(local_df) - 1
+
+                # 从本地最后一行开始，重新计算后面所有行的指标
+                for i in range(local_last_idx, len(combined_df)):
+                    if i == 0:
+                        continue  # 第一行无法计算
+                    prev_close = combined_df.loc[i-1, 'close']
+                    curr_close = combined_df.loc[i, 'close']
+                    curr_high = combined_df.loc[i, 'high']
+                    curr_low = combined_df.loc[i, 'low']
+
+                    # 计算振幅
+                    combined_df.loc[i, 'amplitude'] = (curr_high - curr_low) / prev_close * 100
+                    # 计算涨跌额
+                    combined_df.loc[i, 'change'] = curr_close - prev_close
+                    # 计算涨跌幅
+                    combined_df.loc[i, 'pct_chg'] = combined_df.loc[i, 'change'] / prev_close * 100
+
+                # 统一小数位（与akshare原始数据一致）
+                # open/high/low/close: 2位小数
+                # amplitude/pct_chg/change: 2位小数
+                price_columns = ['open', 'high', 'low', 'close']
+                for col in price_columns:
+                    if col in combined_df.columns:
+                        combined_df[col] = combined_df[col].round(2)
+
+                stats_columns = ['amplitude', 'pct_chg', 'change']
+                for col in stats_columns:
+                    if col in combined_df.columns:
+                        combined_df[col] = combined_df[col].round(2)
+
                 # 保存合并后的数据
                 combined_df['date'] = combined_df['date'].dt.strftime('%Y-%m-%d')
                 combined_df.to_csv(save_path, index=False, encoding='utf-8-sig')
@@ -312,12 +345,15 @@ class AStockDataFetcher:
                 adjust="qfq"
             )
             column_mapping = {
-                '日期': 'date', '开盘': 'open', '收盘': 'close',
+                '日期': 'date', '股票代码': '股票代码', '开盘': 'open', '收盘': 'close',
                 '最高': 'high', '最低': 'low', '成交量': 'volume',
                 '成交额': 'amount', '振幅': 'amplitude', '涨跌幅': 'pct_chg',
                 '涨跌额': 'change', '换手率': 'turnover'
             }
             df = df.rename(columns=column_mapping)
+            # 添加股票代码列
+            if '股票代码' not in df.columns:
+                df['股票代码'] = float(code.replace('sh', '').replace('sz', ''))
 
         elif period == '60min':
             self.logger.info(f"调用 akshare 获取60分钟线数据: {code}")
@@ -361,21 +397,24 @@ class AStockDataFetcher:
         """从 baostock 获取数据（仅支持日线）"""
         if stock_code.startswith('sh'):
             bs_code = f"sh.{stock_code[2:]}"
+            code_num = float(stock_code[2:])
         elif stock_code.startswith('sz'):
             bs_code = f"sz.{stock_code[2:]}"
+            code_num = float(stock_code[2:])
         else:
             bs_code = stock_code
-        
+            code_num = 0.0
+
         if len(start_date) == 8:
             start_date = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:8]}"
         if len(end_date) == 8:
             end_date = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:8]}"
-        
+
         lg = bs.login()
         if lg.error_code != '0':
             self.logger.error(f"baostock登录失败: {lg.error_msg}")
             raise RuntimeError(f"baostock登录失败: {lg.error_msg}")
-        
+
         try:
             self.logger.info(f"调用 baostock 查询数据: {bs_code}, {start_date} 到 {end_date}")
             rs = bs.query_history_k_data_plus(
@@ -386,27 +425,46 @@ class AStockDataFetcher:
                 frequency="d",
                 adjustflag="3"
             )
-            
+
             if rs.error_code != '0':
                 self.logger.error(f"baostock查询失败: {rs.error_msg}")
                 raise RuntimeError(f"baostock查询失败: {rs.error_msg}")
-            
+
             data_list = []
             while (rs.error_code == '0') & rs.next():
                 data_list.append(rs.get_row_data())
-            
+
             if not data_list:
                 self.logger.warning(f"baostock无数据: {stock_code}")
                 return None
-            
+
             df = pd.DataFrame(data_list, columns=rs.fields)
-            
+
             for col in ['open', 'high', 'low', 'close', 'volume', 'amount']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-            
+
+            # 添加 股票代码 列（与 akshare 格式对齐）
+            df['股票代码'] = code_num
+
+            # 计算振幅：(high - low) / prev_close * 100
+            df['amplitude'] = (df['high'] - df['low']) / df['close'].shift(1) * 100
+
+            # 计算涨跌额：close - prev_close
+            df['change'] = df['close'] - df['close'].shift(1)
+
+            # 计算涨跌幅：change / prev_close * 100
+            df['pct_chg'] = df['change'] / df['close'].shift(1) * 100
+
+            # 换手率：baostock 没有提供，设为空值
+            df['turnover'] = None
+
+            # 重新排列列顺序，与 akshare 完全一致
+            column_order = ['date', '股票代码', 'open', 'high', 'low', 'close', 'volume', 'amount', 'amplitude', 'pct_chg', 'change', 'turnover']
+            df = df[column_order]
+
             self.logger.info(f"baostock获取成功: {len(df)} 条记录")
             return df
-        
+
         finally:
             bs.logout()
 

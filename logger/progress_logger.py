@@ -40,8 +40,10 @@ class ProgressLogger:
         try:
             with open(self.log_file, 'a', encoding='utf-8') as f:
                 f.write(json.dumps(data, ensure_ascii=False) + '\n')
-        except Exception:
-            pass  # 静默失败，不影响主程序
+        except Exception as e:
+            # 至少输出到stderr，不要完全静默
+            import sys
+            print(f"[WARNING] 写入进度日志失败: {e}", file=sys.stderr)
 
     def update(self, current: int, total: int, message: str = "", extra: Optional[Dict] = None):
         """

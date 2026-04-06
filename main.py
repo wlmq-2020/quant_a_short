@@ -40,8 +40,8 @@ def check_project_structure():
     main_dir = Path(__file__).parent
     files_in_main_dir = list(main_dir.glob("*"))
 
-    # 允许的文件和目录
-    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config', 'scripts'}
+    # 允许的文件和目录(下面2个参数禁止自动修改必须由我本人主动修改, 如果修改的时候看到要修改这种 必须提示我)
+    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config', 'scripts', 'tests'}
     allowed_files = {'main.py', 'config.py', 'README.md', 'requirements.txt', '.gitignore'}
 
     invalid_files = []
@@ -67,6 +67,7 @@ def check_project_structure():
         print("  - backtest/       - 放回测相关代码")
         print("  - data_fetcher/   - 放数据处理相关代码")
         print("  - logger/         - 放日志和进度相关代码")
+        print("  - tests/          - 放测试脚本")
         print("  - config.py       - 配置文件")
         print("  - main.py         - 主入口（同级只允许这一个文件+config.py）")
         print("=" * 80)
@@ -74,6 +75,66 @@ def check_project_structure():
 
     print("[OK] 项目结构检查通过")
     print("=" * 80)
+
+
+def run_unit_tests():
+    """
+    运行单元测试（快速验证核心逻辑）
+
+    返回: True 表示所有测试通过，False 表示有测试失败
+    """
+    print("\n" + "=" * 80)
+    print("运行单元测试（快速验证核心逻辑）...")
+    print("=" * 80)
+
+    import unittest
+    import sys
+    from io import StringIO
+
+    # 只运行核心测试（不包括外部API相关）
+    test_modules = [
+        'tests.test_strategy',
+        'tests.test_backtest',
+        'tests.test_data_fetcher',
+        'tests.test_logger',
+        'tests.test_config',
+    ]
+
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+
+    for module in test_modules:
+        try:
+            suite.addTests(loader.loadTestsFromName(module))
+        except Exception as e:
+            print(f"[ERROR] 加载测试模块失败: {module}")
+            print(f"        {e}")
+            sys.exit(1)
+
+    # 捕获测试输出
+    test_output = StringIO()
+    runner = unittest.TextTestRunner(stream=test_output, verbosity=1)
+    result = runner.run(suite)
+
+    # 输出测试输出
+    output = test_output.getvalue()
+    if output:
+        print(output)
+
+    # 输出测试结果汇总
+    print("=" * 80)
+    if result.wasSuccessful():
+        print(f"[OK] 所有单元测试通过！（运行 {result.testsRun} 个测试）")
+    else:
+        print(f"[ERROR] 单元测试失败！")
+        print(f"  - 失败: {len(result.failures)}")
+        print(f"  - 错误: {len(result.errors)}")
+        print("=" * 80)
+        print("\n提示：你可以运行 'python run_tests.py' 查看详细测试结果")
+        sys.exit(1)
+    print("=" * 80)
+
+    return True
 
 
 class QuantMainEngine:
@@ -461,6 +522,9 @@ def show_progress(task_name=None):
 if __name__ == "__main__":
     # 【强制】检查项目结构规则
     check_project_structure()
+
+    # 【强制】运行单元测试 - 测试不通过则无法继续
+    run_unit_tests()
 
     # 检查命令行参数
     if len(sys.argv) > 1:

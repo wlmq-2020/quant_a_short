@@ -502,7 +502,15 @@ class StrategyParameterOptimizer:
             eff_current_return = get_effective_return(current_return)
             eff_hist_return = get_effective_return(hist_return)
 
-            # 如果本次收益更高，或者历史是None但本次有值，更新历史最优
+            # ========== 核心逻辑：新高数据覆盖次高数据 ==========
+            # 只有当本次收益 > 历史收益时才更新
+            # 注意：eff_current_return > eff_hist_return 已经包含了以下场景：
+            #   1. 历史为空 (hist_return=None) 且本次有值
+            #   2. 历史和本次都有值，但本次更高
+            # 不会更新的场景：
+            #   1. 本次收益 <= 历史收益
+            #   2. 历史和本次都是 None
+            #   3. 历史有值但本次是 None
             if eff_current_return > eff_hist_return:
                 improvement = current_return - hist_return if (hist_return is not None and current_return is not None) else (current_return if current_return is not None else 0)
                 # 获取股票级别信息
@@ -522,46 +530,20 @@ class StrategyParameterOptimizer:
                     'best_params': current_params,
                     'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
-                status = "↑ 更新!"
-                updated_count += 1
 
-                # 记录日志
                 if hist_return is None:
-                    if current_return is not None:
-                        self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
-                    else:
-                        self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 N/A, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
+                    status = "✓ 新增"
+                    self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
                 else:
-                    if current_return is not None:
-                        self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
-                    else:
-                        self.logger.info(f"[策略优化] 策略 {strategy_type}: 历史 {hist_return:+.2f}% → 本次 N/A, 不更新")
+                    status = "↑ 更新!"
+                    self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%), 夏普 {current_sharpe:.3f}, 新参数: {current_params}")
 
-            elif strategy_type not in historical_best:
-                # 获取股票级别信息
-                best_result = result.get('best_result', {})
-                max_return = best_result.get('max_return', 0)
-                min_return = best_result.get('min_return', 0)
-                best_stock = best_result.get('best_stock', '')
-                worst_stock = best_result.get('worst_stock', '')
-
-                historical_best[strategy_type] = {
-                    'avg_return': current_return,
-                    'avg_sharpe': current_sharpe,
-                    'max_return': max_return,
-                    'min_return': min_return,
-                    'best_stock': best_stock,
-                    'worst_stock': worst_stock,
-                    'best_params': current_params,
-                    'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                }
-                status = "✓ 新增"
                 updated_count += 1
-
-                # 记录日志
-                self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return if current_return is not None else 'N/A':+.2f}%, 夏普 {current_sharpe:.3f}, 参数: {current_params}")
             else:
+                # 本次收益 <= 历史收益，保持历史数据不变
                 status = "保持历史"
+                if hist_return is not None and current_return is None:
+                    self.logger.info(f"[策略优化] 策略 {strategy_type}: 历史 {hist_return:+.2f}% → 本次 N/A, 不更新")
 
             # 格式化显示，处理 None 值
             curr_str = f"{current_return:>+10.2f}%" if current_return is not None else "   N/A   "
@@ -581,15 +563,10 @@ class StrategyParameterOptimizer:
         except Exception as e:
             print(f"  保存历史最优参数失败: {e}")
 
-        # 4. 找出全局最优策略，更新config.py
+        # 4. 显示历史最优策略排名 (Top 5)
         if not historical_best:
-            print("  没有最优参数可更新到config.py")
+            print("  没有最优参数记录")
             return
-
-        # 从历史最优中找收益率最高的
-        top_strategy = None
-        top_return = -float('inf')
-        top_data = None
 
         print("\n  历史最优策略排名 (Top 5):")
         print("  " + "-" * 60)
@@ -605,153 +582,7 @@ class StrategyParameterOptimizer:
             sharpe = data.get('avg_sharpe', 0)
             ret_str = f"{ret:>+8.2f}%" if ret is not None else "   N/A  "
             print(f"  {i}. {strategy_type:<20} 收益率: {ret_str}  夏普: {sharpe:+.3f}")
-            if i == 1 and ret is not None:
-                top_strategy = strategy_type
-                top_return = ret
-                top_data = data
 
         print("  " + "-" * 60)
-
-        if not top_strategy or not top_data:
-            print("  没有可用的最优策略，跳过更新 config.py")
-            return
-
-        top_params = top_data.get('best_params', {})
-        top_return_str = f"{top_return:+.2f}%" if top_return is not None else "N/A"
-        print(f"\n  全局最优策略: {top_strategy} (收益率: {top_return_str})")
-        print(f"  最优参数: {top_params}")
-
-        # 更新config.py
-        if not config_path.exists():
-            print(f"  警告: config.py 不存在: {config_path}")
-            return
-
-        with open(config_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        updated = False
-        import re
-
-        # 参数映射：策略参数名 -> config参数名
-        param_mapping = {
-            'macd_fast': 'MACD_FAST',
-            'macd_slow': 'MACD_SLOW',
-            'macd_signal': 'MACD_SIGNAL',
-            'kdj_n': 'KDJ_N',
-            'kdj_m1': 'KDJ_M1',
-            'kdj_m2': 'KDJ_M2',
-            'rsi_period': 'RSI_PERIOD',
-            'rsi_overbought': 'RSI_OVERBOUGHT',
-            'rsi_oversold': 'RSI_OVERSOLD',
-            'bb_period': 'BOLLINGER_PERIOD',
-            'bb_std': 'BOLLINGER_STD',
-        }
-
-        # 更新config.py内容
-        for param_name, value in top_params.items():
-            if param_name in param_mapping:
-                config_name = param_mapping[param_name]
-
-                pattern = rf'(\s+){config_name}\s*=\s*[0-9.+-]+'
-                if isinstance(value, float):
-                    replacement = rf'\1{config_name} = {value}'
-                else:
-                    replacement = rf'\1{config_name} = {value}'
-
-                new_content, count = re.subn(pattern, replacement, content)
-                if count > 0:
-                    content = new_content
-                    updated = True
-                    print(f"  更新参数: {config_name} = {value}")
-
-        # 更新默认策略类型
-        # 所有36个策略都可以更新到STRATEGY_TYPE（包括基础策略和优化策略）
-        basic_strategies = [
-            'macd_kdj', 'rsi', 'bollinger', 'ma_cross', 'kdj_oversold',
-            'macd_zero_axis', 'turtle_trading', 'momentum', 'mean_reversion',
-            'donchian', 'williams_r', 'cci', 'ema_cross', 'volume_spread',
-            'sar', 'keltner', 'triple_screen',
-            'macd_kdj_fibonacci', 'boll_rsi_optimized', 'kdj_rsi_optimized',
-            'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
-            'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
-            'triple_ema', 'kdj_macd_resonance', 'rsi_atr_adaptive',
-            'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite'
-        ]
-
-        if top_strategy in basic_strategies:
-            pattern = r"(\s+)STRATEGY_TYPE\s*=\s*['\"][^'\"]+['\"]"
-            replacement = rf'\1STRATEGY_TYPE = "{top_strategy}"'
-            new_content, count = re.subn(pattern, replacement, content)
-            if count > 0:
-                content = new_content
-                updated = True
-                print(f"  更新默认策略: STRATEGY_TYPE = {top_strategy}")
-
-        # 更新 OPTIMIZED_STRATEGIES 字典：用历史最优参数更新所有策略
-        print("  [更新 OPTIMIZED_STRATEGIES]")
-        try:
-            # 读取当前 config.py
-            import ast
-            config_content = content
-
-            # 找到 OPTIMIZED_STRATEGIES 字典
-            start_marker = "OPTIMIZED_STRATEGIES = {"
-            end_marker = "    }"
-
-            if start_marker not in config_content:
-                print("    ⚠️  未找到 OPTIMIZED_STRATEGIES 标记，跳过更新")
-            else:
-                start_idx = config_content.find(start_marker)
-
-                # 找到字典结束位置
-                brace_count = 0
-                end_idx = start_idx + len(start_marker)
-                for i, char in enumerate(config_content[start_idx + len(start_marker):]):
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        if brace_count == 0:
-                            end_idx = start_idx + len(start_marker) + i + 1
-                            break
-                        else:
-                            brace_count -= 1
-
-                if end_idx <= start_idx + len(start_marker):
-                    print("    ⚠️  无法解析 OPTIMIZED_STRATEGIES 字典，跳过更新")
-                else:
-                    # 提取原字典
-                    old_dict_str = config_content[start_idx:end_idx]
-                    old_dict_start = old_dict_str.find('{')
-                    old_dict_end = old_dict_str.rfind('}') + 1
-                    old_dict_content = old_dict_str[old_dict_start:old_dict_end]
-
-                    # 解析原字典
-                    old_dict = ast.literal_eval(old_dict_content)
-
-                    # 用历史最优参数更新：只更新有历史最优记录的策略
-                    updated_dict = old_dict.copy()
-                    update_count = 0
-                    for strategy_name, best_data in historical_best.items():
-                        if 'best_params' in best_data:
-                            updated_dict[strategy_name] = best_data['best_params']
-                            update_count += 1
-
-                    # 生成新字典字符串
-                    import pprint
-                    new_dict_str = "OPTIMIZED_STRATEGIES = " + pprint.pformat(updated_dict, indent=4, width=100)
-
-                    # 替换
-                    config_content = config_content[:start_idx] + new_dict_str + config_content[end_idx:]
-                    content = config_content
-                    updated = True
-                    print(f"    ✅ OPTIMIZED_STRATEGIES 已更新: {update_count} 个策略参数")
-
-        except Exception as e:
-            print(f"    ⚠️  更新 OPTIMIZED_STRATEGIES 失败: {e}")
-
-        if updated:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print("  config.py 已更新!")
-        else:
-            print("  没有需要更新的参数")
+        print("  [提示] 最优参数已保存到 best_strategy_params.json")
+        print("  [提示] 不再修改 config.py 源代码")
