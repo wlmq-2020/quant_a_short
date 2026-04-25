@@ -16,6 +16,10 @@ import copy
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
+# 导入自定义交易规则类
+from backtest.commissions import AStockCommission
+from backtest.slippage import MarketCapSlippage
+
 
 def run_single_strategy_process(strategy_type, stock_data_dict, config_dict):
     """
@@ -47,10 +51,11 @@ def run_single_strategy_process(strategy_type, stock_data_dict, config_dict):
     from config import Config
     from logger.logger import GlobalLogger
 
-    # 重建配置对象
+    # 重建配置对象（只设置非可调用、非私有属性，避免覆盖类方法）
     config = Config()
     for key, value in config_dict.items():
-        setattr(config, key, value)
+        if not key.startswith('_') and not callable(value):
+            setattr(config, key, value)
 
     # 初始化日志
     logger = GlobalLogger(
@@ -195,14 +200,18 @@ class BacktraderBacktester:
             # 4. 设置初始资金
             cerebro.broker.setcash(self.initial_capital)
 
-            # 5. 设置手续费
-            cerebro.broker.setcommission(
+            # 5. 设置手续费 - 使用自定义A股佣金类，完全匹配实盘规则
+            comminfo = AStockCommission(
                 commission=self.config.COMMISSION_RATE,
-                margin=None,
-                mult=1.0,
-                commtype=bt.CommInfoBase.COMM_PERC,
-                stocklike=True
+                stamp_duty=self.config.STAMP_DUTY_RATE,
+                transfer_fee=self.config.TRANSFER_FEE_RATE,
+                min_commission=self.config.MIN_COMMISSION
             )
+            cerebro.broker.addcommissioninfo(comminfo)
+
+            # 6. 设置滑点 - 使用基于市值的滑点模型
+            slippage = MarketCapSlippage()
+            cerebro.broker.set_slippage(slippage)
 
             # 6. 添加分析器
             cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
@@ -278,8 +287,14 @@ class BacktraderBacktester:
         total_return = final_capital - initial_capital
         total_return_pct = (total_return / initial_capital) * 100
 
-        # 年化收益率
-        trading_days = len(df)
+        # 年化收益率 - 使用实际回测的交易日数（从TimeReturn分析器获取，避免包含停牌/休市日期）
+        try:
+            timereturn_analyzer = strat.analyzers.timereturn.get_analysis()
+            trading_days = len(timereturn_analyzer)
+        except Exception:
+            # 分析器获取失败时使用df长度作为备选
+            trading_days = len(df)
+
         if trading_days > 0:
             annual_return_pct = ((final_capital / initial_capital) ** (252 / trading_days) - 1) * 100
         else:
@@ -500,14 +515,18 @@ class BacktraderBacktester:
             # 4. 设置初始资金
             cerebro.broker.setcash(self.initial_capital)
 
-            # 5. 设置手续费
-            cerebro.broker.setcommission(
+            # 5. 设置手续费 - 使用自定义A股佣金类，完全匹配实盘规则
+            comminfo = AStockCommission(
                 commission=self.config.COMMISSION_RATE,
-                margin=None,
-                mult=1.0,
-                commtype=bt.CommInfoBase.COMM_PERC,
-                stocklike=True
+                stamp_duty=self.config.STAMP_DUTY_RATE,
+                transfer_fee=self.config.TRANSFER_FEE_RATE,
+                min_commission=self.config.MIN_COMMISSION
             )
+            cerebro.broker.addcommissioninfo(comminfo)
+
+            # 6. 设置滑点 - 使用基于市值的滑点模型
+            slippage = MarketCapSlippage()
+            cerebro.broker.set_slippage(slippage)
 
             # 6. 添加分析器
             cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')

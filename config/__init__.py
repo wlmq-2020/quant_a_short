@@ -107,8 +107,8 @@ class Config:
     # 印花税：千分之1（仅卖出时收取）
     STAMP_DUTY_RATE = 0.001
 
-    # 过户费：万分之0.2（双向收取）
-    TRANSFER_FEE_RATE = 0.00002
+    # 过户费：万分之0.1（双向收取，与实盘一致）
+    TRANSFER_FEE_RATE = 0.00001
 
     # 最低手续费5元
     MIN_COMMISSION = 5.0
