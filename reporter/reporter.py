@@ -3,6 +3,7 @@
 统一量化报表模块
 负责生成回测汇总 Markdown 报告
 """
+import warnings
 from pathlib import Path
 from datetime import datetime
 
@@ -115,9 +116,15 @@ class QuantReporter:
 
     def generate_report(self, backtest_result=None, paper_trade_result=None, stock_code=None):
         """
-        单个股票报表（保留接口，不做实际生成）
+        [DEPRECATED] 单个股票报表接口已废弃
+        建议使用 generate_summary_report() 生成汇总报告
         """
-        # 不再生成单个股票的复杂报表
+        warnings.warn(
+            "generate_report 接口已废弃，不再生成单个股票报表，请使用 generate_summary_report() 生成汇总报告",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # 保留空返回以兼容旧代码
         return {}
 
     def generate_strategy_comparison_report(self, all_strategy_results):

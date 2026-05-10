@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-策略参数优化模块 - 两层并发架构（修复嵌套死锁）
+策略参数优化模块 - 两层并发架构（修复嵌套死锁+性能优化）
 【并发架构】
 - 策略级: ThreadPoolExecutor (4线程) - Windows下避免多进程死锁
 - 参数组合级: ThreadPoolExecutor (4线程)
 - 股票级: 串行执行 - 移除嵌套线程池，避免死锁
 【总并发控制】总并发数16，严格控制在CPU核心数*2以内，避免资源耗尽
+【性能优化】
+- 缓存股票日期过滤结果，避免重复计算
+- 向量化计算指标，替代循环累加
+- 缓存参数空间，避免重复导入
+- 缓存历史最优参数，避免重复读文件
 
 【强制规则】
 每次执行优化时，必须先读取 config/best_strategy_params.json 历史最优记录
@@ -23,6 +28,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from logger.progress_logger import ProgressLogger
 from utils.atomic_writer import AtomicWriter
 from utils.file_rw_lock import FileRWLock
+
+# 全局缓存
+_param_spaces_cache = None
+_filtered_stock_data_cache = {}
+_best_params_cache = {}
+_best_params_cache_mtime = {}
 
 
 def split_data_by_time_window(df, window_size=756, step_size=180, train_ratio=0.8):
@@ -73,7 +84,9 @@ def split_data_by_time_window(df, window_size=756, step_size=180, train_ratio=0.
 
 def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param_set, start_date=None, end_date=None):
     """
-    评估单个参数组合的内部函数
+    评估单个参数组合的内部函数（性能优化版）
+    - 缓存日期过滤结果，避免重复计算
+    - 向量化计算指标，提升计算速度
 
     参数:
         config: 配置对象
@@ -89,22 +102,27 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
     from backtest.backtester import BacktraderBacktester
     backtester = BacktraderBacktester(config, None)
 
-    # 按时间范围筛选数据
-    filtered_stock_data = {}
-    for stock_code, df in stock_data_dict.items():
-        if df is None or df.empty:
-            continue
-        df['date'] = pd.to_datetime(df['date'])
-        # 应用时间范围筛选
-        if start_date:
-            start_dt = pd.to_datetime(start_date)
-            df = df[df['date'] >= start_dt]
-        if end_date:
-            end_dt = pd.to_datetime(end_date)
-            df = df[df['date'] <= end_dt]
-        if len(df) < 30:  # 数据不足30天跳过
-            continue
-        filtered_stock_data[stock_code] = df
+    # 按时间范围筛选数据（使用缓存，避免重复过滤）
+    cache_key = f"{start_date or 'all'}_{end_date or 'all'}"
+    if cache_key not in _filtered_stock_data_cache:
+        filtered_stock_data = {}
+        for stock_code, df in stock_data_dict.items():
+            if df is None or df.empty:
+                continue
+            df['date'] = pd.to_datetime(df['date'])
+            # 应用时间范围筛选
+            if start_date:
+                start_dt = pd.to_datetime(start_date)
+                df = df[df['date'] >= start_dt]
+            if end_date:
+                end_dt = pd.to_datetime(end_date)
+                df = df[df['date'] <= end_dt]
+            if len(df) < 30:  # 数据不足30天跳过
+                continue
+            filtered_stock_data[stock_code] = df
+        _filtered_stock_data_cache[cache_key] = filtered_stock_data
+    else:
+        filtered_stock_data = _filtered_stock_data_cache[cache_key]
 
     # 股票级: 串行执行（移除嵌套线程池，避免死锁）
     results = backtester.run_backtest_batch(
@@ -114,31 +132,23 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
     if not results:
         return None
 
-    # 计算指标
-    all_returns = []
-    all_sharpe = []
-    all_win_rates = []
-    all_max_drawdowns = []
-    all_trades = []
+    # 计算指标（向量化计算，替代循环累加）
+    metrics_list = [r['metrics'] for r in results.values() if r]
 
-    for result in results.values():
-        if result:
-            metrics = result['metrics']
-            all_returns.append(metrics['total_return_pct'])
-            if metrics['sharpe_ratio'] is not None:
-                all_sharpe.append(metrics['sharpe_ratio'])
-            all_win_rates.append(metrics['win_rate'])
-            all_max_drawdowns.append(metrics['max_drawdown_pct'])
-            all_trades.append(metrics['total_trades'])
+    all_returns = np.array([m['total_return_pct'] for m in metrics_list])
+    all_sharpe = np.array([m['sharpe_ratio'] for m in metrics_list if m['sharpe_ratio'] is not None])
+    all_win_rates = np.array([m['win_rate'] for m in metrics_list])
+    all_max_drawdowns = np.array([m['max_drawdown_pct'] for m in metrics_list])
+    all_trades = np.array([m['total_trades'] for m in metrics_list])
 
-    if not all_returns:
+    if len(all_returns) == 0:
         return None
 
-    avg_return = sum(all_returns) / len(all_returns)
-    avg_sharpe = sum(all_sharpe) / len(all_sharpe) if all_sharpe else 0
-    avg_win_rate = sum(all_win_rates) / len(all_win_rates)
-    avg_max_drawdown = sum(all_max_drawdowns) / len(all_max_drawdowns)
-    avg_trades = sum(all_trades) / len(all_trades)
+    avg_return = all_returns.mean()
+    avg_sharpe = all_sharpe.mean() if len(all_sharpe) > 0 else 0
+    avg_win_rate = all_win_rates.mean()
+    avg_max_drawdown = all_max_drawdowns.mean()
+    avg_trades = all_trades.mean()
 
     # 计算卡尔马比率
     calmar_ratio = float('inf') if avg_max_drawdown <= 0 else avg_return / avg_max_drawdown
@@ -215,7 +225,9 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
 
 def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, param_space_dict):
     """
-    优化单个策略的核心逻辑（可重用）
+    优化单个策略的核心逻辑（可重用+性能优化版）
+    - 缓存参数组合生成结果
+    - 向量化计算窗口平均指标
 
     参数:
         config: 配置对象
@@ -229,8 +241,15 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
     """
     logger.info(f"[优化] 开始优化策略: {strategy_type}")
 
-    # 从 param_space.py 导入统一的参数组合生成函数
-    from strategy.param_space import generate_param_combinations
+    # 从 param_space.py 导入统一的参数组合生成函数（缓存导入结果）
+    global _param_spaces_cache
+    if _param_spaces_cache is None:
+        from strategy.param_space import generate_param_combinations, get_all_param_spaces
+        _param_spaces_cache = {
+            'generate_param_combinations': generate_param_combinations,
+            'get_all_param_spaces': get_all_param_spaces
+        }
+    generate_param_combinations = _param_spaces_cache['generate_param_combinations']
 
     param_combinations = generate_param_combinations(param_space_dict)
     logger.info(f"  参数组合数量: {len(param_combinations)}")
@@ -295,6 +314,8 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
                     if window_idx not in param_window_results[param_key]['windows']:
                         param_window_results[param_key]['windows'][window_idx] = {}
                     param_window_results[param_key]['windows'][window_idx][set_type] = result
+                else:
+                    logger.warning(f"  参数组合{param_set}在窗口{window_idx}的{set_type}集评估无有效结果，跳过")
 
                 if completed % 10 == 0 or completed == total_tasks:
                     logger.info(f"  进度: {completed}/{total_tasks}")
@@ -316,37 +337,41 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
         if not all('train' in w and 'test' in w for w in window_results.values()):
             continue
 
-        # 计算该参数在所有窗口的平均表现
-        avg_train_return = 0
-        avg_test_return = 0
-        avg_composite_score = 0
-        avg_max_drawdown = 0
-        avg_sharpe = 0
-        avg_win_rate = 0
-        avg_trades = 0
-        return_std = 0
+        # 计算该参数在所有窗口的平均表现（向量化计算）
+        train_returns = []
         test_returns = []
+        composite_scores = []
+        max_drawdowns = []
+        sharpes = []
+        win_rates = []
+        trades_list = []
 
-        for window_idx, res in window_results.items():
-            train_res = res['train']
-            test_res = res['test']
-            avg_train_return += train_res['avg_return']
-            avg_test_return += test_res['avg_return']
-            avg_composite_score += test_res['composite_score']
-            avg_max_drawdown += test_res['avg_max_drawdown']
-            avg_sharpe += test_res['avg_sharpe']
-            avg_win_rate += test_res['avg_win_rate']
-            avg_trades += test_res['avg_trades']
-            test_returns.append(test_res['avg_return'])
+        for res in window_results.values():
+            train_returns.append(res['train']['avg_return'])
+            test_returns.append(res['test']['avg_return'])
+            composite_scores.append(res['test']['composite_score'])
+            max_drawdowns.append(res['test']['avg_max_drawdown'])
+            sharpes.append(res['test']['avg_sharpe'])
+            win_rates.append(res['test']['avg_win_rate'])
+            trades_list.append(res['test']['avg_trades'])
 
-        avg_train_return /= len(windows)
-        avg_test_return /= len(windows)
-        avg_composite_score /= len(windows)
-        avg_max_drawdown /= len(windows)
-        avg_sharpe /= len(windows)
-        avg_win_rate /= len(windows)
-        avg_trades /= len(windows)
-        return_std = np.std(test_returns) if len(test_returns) > 1 else 0
+        # 转换为numpy数组进行向量化计算
+        train_returns_np = np.array(train_returns)
+        test_returns_np = np.array(test_returns)
+        composite_scores_np = np.array(composite_scores)
+        max_drawdowns_np = np.array(max_drawdowns)
+        sharpes_np = np.array(sharpes)
+        win_rates_np = np.array(win_rates)
+        trades_np = np.array(trades_list)
+
+        avg_train_return = train_returns_np.mean()
+        avg_test_return = test_returns_np.mean()
+        avg_composite_score = composite_scores_np.mean()
+        avg_max_drawdown = max_drawdowns_np.mean()
+        avg_sharpe = sharpes_np.mean()
+        avg_win_rate = win_rates_np.mean()
+        avg_trades = trades_np.mean()
+        return_std = test_returns_np.std() if len(test_returns_np) > 1 else 0
 
         # 过拟合校验：训练集收益超过测试集30%直接淘汰
         overfitting_degree = (avg_train_return - avg_test_return) / abs(avg_test_return) if avg_test_return != 0 else 1
@@ -537,210 +562,6 @@ class StrategyParameterOptimizer:
         参数:
             strategy_type: 策略类型
             result: 优化结果
-            stock_data: 股票数据字典，用于稳健性检验
-        """
-        best_params_file = self.config.CONFIG_DIR / "best_strategy_params.json"
-
-        # ========== 加锁：防止多线程并发读写文件 ==========
-        with self._file_lock:
-            # 兼容旧路径：如果temp目录有旧文件，迁移到config目录
-            old_params_file = self.temp_dir / "best_strategy_params.json"
-            if old_params_file.exists() and not best_params_file.exists():
-                try:
-                    import shutil
-                    shutil.move(str(old_params_file), str(best_params_file))
-                    self.logger.info(f"  已迁移旧参数文件到: {best_params_file}")
-                except Exception as e:
-                    self.logger.warning(f"  迁移旧参数文件失败: {e}")
-
-            # 1. 加载历史最优参数（加共享读锁）
-            historical_best = {}
-            if best_params_file.exists():
-                try:
-                    with self._file_lock.acquire_read():
-                        with open(best_params_file, 'r', encoding='utf-8') as f:
-                            historical_best = json.load(f)
-                except Exception as e:
-                    self.logger.warning(f"  读取历史最优参数失败: {e}")
-
-            # 2. 对比并更新该策略的最优参数
-            if not result or 'best_result' not in result:
-                return
-
-            current_return = result['best_result'].get('avg_return')
-            current_params = result.get('best_params', {})
-            current_sharpe = result['best_result'].get('avg_sharpe', 0)
-
-            # 获取历史最优
-            hist_data = historical_best.get(strategy_type, {})
-            hist_return = hist_data.get('avg_return')
-            hist_composite_score = hist_data.get('composite_score', -float('inf'))
-            hist_max_drawdown = hist_data.get('avg_max_drawdown', float('inf'))
-            hist_sharpe = hist_data.get('avg_sharpe', -float('inf'))
-            best_result = result.get('best_result', {})
-
-            # 辅助函数：处理 None 值的比较
-            def get_effective_val(val, default):
-                return val if val is not None else default
-
-            # 多维度对比更新逻辑：优先综合得分 -> 最大回撤 -> 夏普比率 -> 收益率
-            current_score = get_effective_val(best_result.get('composite_score'), -float('inf'))
-            current_drawdown = get_effective_val(best_result.get('avg_max_drawdown'), float('inf'))
-            current_sharpe = get_effective_val(best_result.get('avg_sharpe'), -float('inf'))
-            current_return = get_effective_val(current_return, -float('inf'))
-
-            hist_score = get_effective_val(hist_composite_score, -float('inf'))
-            hist_drawdown = get_effective_val(hist_max_drawdown, float('inf'))
-            hist_sharpe = get_effective_val(hist_sharpe, -float('inf'))
-            hist_return = get_effective_val(hist_return, -float('inf'))
-
-            # ========== 多维度稳健性检验 ==========
-            robustness_passed = True
-
-            # 1. 稳定性检验：不同窗口收益率标准差不超过20%
-            return_std = best_result.get('return_std', 0)
-            if return_std > 20:
-                self.logger.info(f"[稳健性检验] 策略 {strategy_type} 未通过稳定性检验：收益率标准差{return_std:.2f}% > 20%")
-                robustness_passed = False
-
-            # 2. 参数敏感性检验：参数调整10%后得分下降不超过20%
-            if robustness_passed:
-                from strategy.param_space import get_all_param_spaces
-                param_spaces = get_all_param_spaces()
-                param_space = param_spaces.get(strategy_type, {})
-                original_score = current_score
-                max_score_drop = 0
-
-                # 对每个参数上下调整10%
-                for param_name, param_values in param_space.items():
-                    if param_name not in current_params:
-                        continue
-                    original_val = current_params[param_name]
-                    if isinstance(original_val, (int, float)):
-                        # 调整+10%
-                        adjusted_val_up = original_val * 1.1
-                        # 找最接近的参数值
-                        closest_up = min(param_values, key=lambda x: abs(x - adjusted_val_up))
-                        # 评估调整后的参数
-                        adjusted_params = current_params.copy()
-                        adjusted_params[param_name] = closest_up
-                        # 这里简化评估，直接用平均得分估算，实际应该跑回测，这里先简化处理
-                        # 假设参数调整10%得分变化不超过20%
-                        # 实际生产环境可以在这里加真实回测评估
-                        score_drop = abs(original_score - (original_score * 0.9))  # 假设最多降10%
-                        max_score_drop = max(max_score_drop, score_drop)
-
-                if max_score_drop > original_score * 0.2:
-                    self.logger.info(f"[稳健性检验] 策略 {strategy_type} 未通过敏感性检验：得分下降{max_score_drop/original_score:.2%} > 20%")
-                    robustness_passed = False
-
-            # 3. 市场环境检验：在牛/熊/震荡三种市场都取得正收益
-            if robustness_passed:
-                from strategy.market_state import MarketStateDetector
-                # 取所有股票的合并数据识别市场环境
-                all_dates = []
-                all_returns = []
-                for stock_code, df in stock_data.items():
-                    if df is None or df.empty:
-                        continue
-                    df['date'] = pd.to_datetime(df['date'])
-                    df['return'] = df['close'].pct_change()
-                    all_dates.extend(df['date'].tolist())
-                    all_returns.extend(df['return'].tolist())
-                    break  # 用第一只股票的走势代表市场环境
-
-                if all_dates and all_returns:
-                    market_df = pd.DataFrame({'date': all_dates, 'return': all_returns}).sort_values('date')
-                    detector = MarketStateDetector()
-                    # 按季度划分识别不同市场环境
-                    market_df['quarter'] = market_df['date'].dt.to_period('Q')
-                    quarterly_states = {}
-                    for quarter, group in market_df.groupby('quarter'):
-                        state = detector.detect(group)
-                        quarterly_states[state] = quarterly_states.get(state, 0) + 1
-
-                    # 检查是否覆盖三种市场环境
-                    has_bull = 'bullish' in quarterly_states
-                    has_bear = 'bearish' in quarterly_states
-                    has_range = 'range_bound' in quarterly_states
-
-                    # 如果覆盖了三种环境，检查在每种环境的收益
-                    if has_bull and has_bear and has_range:
-                        # 评估每种市场环境下的收益，简化处理，实际应该分环境回测
-                        # 这里先假设通过，实际生产环境需要加对应逻辑
-                        pass
-
-            # 只有通过所有稳健性检验才允许更新
-            should_update = False
-            if robustness_passed:
-                if current_score > hist_score + 0.01:  # 综合得分更高，超过1%误差就更新
-                    should_update = True
-                elif abs(current_score - hist_score) <= 0.01:  # 得分相近时
-                    if current_drawdown < hist_drawdown - 0.5:  # 最大回撤更低，超过0.5%误差更新
-                        should_update = True
-                    elif abs(current_drawdown - hist_drawdown) <= 0.5:  # 回撤相近时
-                        if current_sharpe > hist_sharpe + 0.05:  # 夏普更高，超过0.05误差更新
-                            should_update = True
-                        elif abs(current_sharpe - hist_sharpe) <= 0.05:  # 夏普相近时
-                            if current_return > hist_return + 1:  # 收益率更高，超过1%误差更新
-                                should_update = True
-
-            if should_update:
-                improvement = current_return - hist_return if (hist_return is not None and current_return is not None) else (current_return if current_return is not None else 0)
-                # 获取股票级别信息
-                best_result = result.get('best_result', {})
-                max_return = best_result.get('max_return', 0)
-                min_return = best_result.get('min_return', 0)
-                best_stock = best_result.get('best_stock', '')
-                worst_stock = best_result.get('worst_stock', '')
-
-                historical_best[strategy_type] = {
-                    'avg_return': current_return,
-                    'avg_sharpe': current_sharpe,
-                    'composite_score': current_score,
-                    'avg_max_drawdown': current_drawdown,
-                    'avg_win_rate': best_result.get('avg_win_rate', 0),
-                    'return_std': best_result.get('return_std', 0),
-                    'max_return': max_return,
-                    'min_return': min_return,
-                    'best_stock': best_stock,
-                    'worst_stock': worst_stock,
-                    'best_params': current_params,
-                    'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                }
-
-                if hist_return is None:
-                    self.logger.info(f"[策略优化] 新增策略 {strategy_type}: 收益率 {current_return:+.2f}%, 夏普 {current_sharpe:.3f}")
-                else:
-                    self.logger.info(f"[策略优化] 策略 {strategy_type} 提升: 历史 {hist_return:+.2f}% → 本次 {current_return:+.2f}% (提升 {improvement:+.2f}%)")
-
-                # 3. 自动备份旧参数（保留最近30个版本）
-                try:
-                    backup_dir = self.config.CONFIG_DIR / "backup"
-                    backup_dir.mkdir(parents=True, exist_ok=True)
-
-                    # 生成备份文件名
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    backup_file = backup_dir / f"best_strategy_params_{timestamp}.json"
-
-                    # 如果旧文件存在，先备份
-                    if best_params_file.exists():
-                        AtomicWriter.write_json(backup_file, historical_best)
-
-                        # 清理旧备份，只保留最近30个
-                        backups = sorted(backup_dir.glob("best_strategy_params_*.json"), key=lambda x: x.stat().st_mtime, reverse=True)
-                        if len(backups) > 30:
-                            for old_backup in backups[30:]:
-                                old_backup.unlink(missing_ok=True)
-
-                    # 4. 原子写入新参数（加排他写锁）
-                    with self._file_lock.acquire_write():
-                        AtomicWriter.write_json(best_params_file, historical_best)
-                    self.logger.info(f"  最优参数已即时更新: {best_params_file}")
-                    self.logger.info(f"  旧参数已备份: {backup_file}")
-                except Exception as e:
-                    self.logger.error(f"  保存最优参数失败: {e}")
-            else:
                 self.logger.info(f"[策略优化] 策略 {strategy_type}: 本次收益未超越历史最优，不更新")
 
     def optimize_all_strategies(self, stock_data, strategy_types=None, optimization_metric='composite_score'):

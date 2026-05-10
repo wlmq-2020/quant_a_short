@@ -90,7 +90,9 @@ class BacktraderBacktester:
 
     def __init__(self, config, logger):
         """
-        初始化回测器
+        初始化回测器（性能优化版）
+        - 初始化全局线程池，避免每次调用都新建
+        - 缓存最优参数，避免重复读文件
 
         参数:
             config: 配置对象
@@ -105,6 +107,22 @@ class BacktraderBacktester:
         # 导入策略
         from strategy.strategy import get_strategy_class
         self.get_strategy_class = get_strategy_class
+
+        # 全局线程池（重用，避免每次创建销毁）
+        import multiprocessing
+        self._default_max_workers = min(multiprocessing.cpu_count(), 4)
+        self._thread_pool = ThreadPoolExecutor(max_workers=self._default_max_workers)
+        self._thread_pool_max_workers = self._default_max_workers
+
+        # 缓存最优参数
+        self._best_params_cache = None
+        self._best_params_mtime = 0
+
+    def close(self):
+        """关闭资源，释放线程池，避免资源泄漏"""
+        if hasattr(self, '_thread_pool') and self._thread_pool:
+            self._thread_pool.shutdown(wait=True)
+            self._thread_pool = None
 
     def _build_strategy_params(self, strategy_type, config, override_params=None):
         """
@@ -138,19 +156,33 @@ class BacktraderBacktester:
         best_params_file = config.CONFIG_DIR / "best_strategy_params.json"
 
         found_in_json = False
-        if best_params_file.exists():
-            try:
-                with open(best_params_file, 'r', encoding='utf-8') as f:
-                    all_best_params = json.load(f)
+        all_best_params = {}
 
-                if strategy_type in all_best_params:
-                    strategy_data = all_best_params[strategy_type]
-                    if 'best_params' in strategy_data:
-                        best_params = strategy_data['best_params']
-                        params.update(best_params)
-                        found_in_json = True
-            except Exception:
-                pass
+        # 缓存最优参数，避免重复读文件，文件修改后自动刷新
+        if best_params_file.exists():
+            current_mtime = best_params_file.stat().st_mtime
+            # 如果缓存有效，直接使用
+            if current_mtime == self._best_params_mtime and self._best_params_cache is not None:
+                all_best_params = self._best_params_cache
+            else:
+                # 缓存失效，重新读取
+                try:
+                    with open(best_params_file, 'r', encoding='utf-8') as f:
+                        all_best_params = json.load(f)
+                    # 更新缓存
+                    self._best_params_cache = all_best_params
+                    self._best_params_mtime = current_mtime
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"读取最优参数文件失败: {str(e)}")
+                    all_best_params = {}
+
+        if strategy_type in all_best_params:
+            strategy_data = all_best_params[strategy_type]
+            if 'best_params' in strategy_data:
+                best_params = strategy_data['best_params']
+                params.update(best_params)
+                found_in_json = True
 
         # 如果JSON里没有，从参数空间取第一个值作为默认值
         if not found_in_json:
@@ -552,8 +584,10 @@ class BacktraderBacktester:
 
     def run_backtest_batch(self, stock_data, strategy_type, override_params=None, max_workers=None):
         """
-        并发运行多只股票的回测（使用线程池）
+        并发运行多只股票的回测（使用线程池，性能优化版）
         【股票级】在线程池中执行
+        【优化】重用全局线程池，避免每次创建销毁开销
+        【优化】支持动态调整并发数，队列满时自动降级串行执行
 
         参数:
             stock_data: 股票数据字典 {stock_code: df}
@@ -564,29 +598,58 @@ class BacktraderBacktester:
         返回:
             dict: 回测结果字典 {stock_code: result}
         """
-        if max_workers is None:
-            max_workers = min(multiprocessing.cpu_count(), 4)
-
         results = {}
         total = len(stock_data)
         completed = 0
+        serial_tasks = []  # 队列满时需要串行执行的任务
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 提交所有任务
-            futures = {}
-            for stock_code, df in stock_data.items():
-                future = executor.submit(
+        # 如果指定了max_workers，且和当前线程池大小不一样，重新创建线程池
+        if max_workers is not None and max_workers != self._thread_pool_max_workers:
+            if self._thread_pool:
+                self._thread_pool.shutdown(wait=True)
+            self._thread_pool = ThreadPoolExecutor(max_workers=max_workers)
+            self._thread_pool_max_workers = max_workers
+            if self.logger:
+                self.logger.info(f"调整线程池并发数为: {max_workers}")
+
+        # 提交所有任务到全局线程池
+        futures = {}
+        for stock_code, df in stock_data.items():
+            try:
+                future = self._thread_pool.submit(
                     self.run_backtest_with_params,
                     df, stock_code, strategy_type, override_params
                 )
                 futures[future] = stock_code
+            except RuntimeError as e:
+                # 队列满，降级到串行执行
+                if self.logger:
+                    self.logger.debug(f"线程池队列满，{stock_code}回测任务降级到串行执行: {str(e)}")
+                serial_tasks.append((stock_code, df))
 
-            # 收集结果
-            for future in as_completed(futures):
-                stock_code = futures[future]
+        # 收集线程池任务结果
+        for future in as_completed(futures):
+            stock_code = futures[future]
+            completed += 1
+            try:
+                result = future.result()
+                if result:
+                    results[stock_code] = result
+                if completed % 10 == 0 or completed == total:
+                    if self.logger:
+                        self.logger.info(f"  进度: {completed}/{total}")
+            except Exception as e:
+                if self.logger:
+                    self.logger.warning(f"  {stock_code} 回测失败: {str(e)}")
+
+        # 串行执行队列满时剩下的任务
+        if serial_tasks:
+            if self.logger:
+                self.logger.info(f"开始串行执行剩余{len(serial_tasks)}个回测任务")
+            for stock_code, df in serial_tasks:
                 completed += 1
                 try:
-                    result = future.result()
+                    result = self.run_backtest_with_params(df, stock_code, strategy_type, override_params)
                     if result:
                         results[stock_code] = result
                     if completed % 10 == 0 or completed == total:

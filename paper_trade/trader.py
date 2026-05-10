@@ -240,6 +240,11 @@ class PaperTrader:
             price_dict: {stock_code: current_price}
             date: 日期
         """
+        # 检查持仓是否有缺失价格的股票
+        missing_price_stocks = [code for code in self.positions if code not in price_dict]
+        if missing_price_stocks:
+            self.logger.warning(f"{date} 以下持仓股票缺失价格数据：{missing_price_stocks}，将使用上次价格计算")
+
         for stock_code, price in price_dict.items():
             if stock_code in self.positions:
                 self.positions[stock_code].update_price(price)

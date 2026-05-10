@@ -10,15 +10,19 @@ import json
 
 
 class ProgressLogger:
-    """进度日志记录器"""
+    """进度日志记录器（性能优化版）
+    - 使用带缓冲的文件句柄，避免每次打开关闭文件
+    - 定期flush缓冲，平衡性能和数据安全性
+    """
 
-    def __init__(self, log_dir: Path, task_name: str = "default"):
+    def __init__(self, log_dir: Path, task_name: str = "default", buffer_size: int = 10):
         """
         初始化进度日志记录器
 
         参数:
             log_dir: 日志目录
             task_name: 任务名称，用于生成日志文件名
+            buffer_size: 缓冲大小，累计多少条日志再写入磁盘，默认10条
         """
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -27,6 +31,11 @@ class ProgressLogger:
         self.log_file = self.log_dir / f"progress_{task_name}.log"
         self.current_task = task_name
         self.start_time = datetime.now()
+        self.buffer_size = buffer_size
+        self._buffer = []  # 日志缓冲
+
+        # 打开文件句柄（带缓冲）
+        self._file_handle = open(self.log_file, 'a', encoding='utf-8', buffering=1)
 
         # 写入开始标记
         self._write_log({
@@ -35,15 +44,34 @@ class ProgressLogger:
             "timestamp": self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
         })
 
-    def _write_log(self, data: Dict[str, Any]):
-        """写入一条日志记录"""
+    def __del__(self):
+        """析构时关闭文件句柄"""
         try:
-            with open(self.log_file, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(data, ensure_ascii=False) + '\n')
+            self._flush()
+            self._file_handle.close()
+        except:
+            pass
+
+    def _flush(self):
+        """将缓冲中的日志写入磁盘"""
+        if not self._buffer:
+            return
+        try:
+            for data in self._buffer:
+                self._file_handle.write(json.dumps(data, ensure_ascii=False) + '\n')
+            self._file_handle.flush()
+            self._buffer = []
         except Exception as e:
             # 至少输出到stderr，不要完全静默
             import sys
             print(f"[WARNING] 写入进度日志失败: {e}", file=sys.stderr)
+
+    def _write_log(self, data: Dict[str, Any]):
+        """写入一条日志记录（带缓冲）"""
+        self._buffer.append(data)
+        # 达到缓冲大小就flush
+        if len(self._buffer) >= self.buffer_size:
+            self._flush()
 
     def update(self, current: int, total: int, message: str = "", extra: Optional[Dict] = None):
         """

@@ -3,11 +3,25 @@
 策略参数空间定义
 定义所有策略的参数搜索范围
 """
+import warnings
 from itertools import product
 
 
-# 所有策略的参数空间定义（共36个）
+# 所有策略的参数空间定义（共37个）
 PARAM_SPACES = {
+    'hot_volume': {
+        'hot_period': [3, 5],
+        'hot_top_n': [5, 10, 15],
+        'steady_period': [7, 10],
+        'steady_threshold': [0.2, 0.3, 0.4],
+        'week_ma_period': [15, 20],
+        'week_volume_ratio': [1.2, 1.5, 1.8],
+        'day_ma_period': [7, 10],
+        'day_volume_ratio': [1.5, 2.0, 2.5],
+        'stop_loss_ratio': [0.03, 0.05],
+        'take_profit_ratio': [0.10, 0.15, 0.20],
+        'position_ratio': [0.6, 0.8],
+    },
     'macd_kdj': {
         'macd_fast': [8, 12],
         'macd_slow': [20, 26],
@@ -292,6 +306,18 @@ PARAM_SPACES = {
         'stop_loss_ratio': [0.04, 0.06],
         'take_profit_ratio': [0.12, 0.18],
     },
+    'hot_volume': {
+        'hot_period': [2, 3, 5],
+        'hot_top_n': [5, 10, 15],
+        'steady_period': [5, 10, 15],
+        'steady_threshold': [0.2, 0.3, 0.4],
+        'week_ma_period': [10, 20, 30],
+        'week_volume_ratio': [1.3, 1.5, 1.8],
+        'day_ma_period': [5, 10, 15],
+        'day_volume_ratio': [1.8, 2.0, 2.5],
+        'stop_loss_ratio': [0.04, 0.05, 0.06],
+        'take_profit_ratio': [0.12, 0.15, 0.18],
+    },
 }
 
 
@@ -342,7 +368,34 @@ def get_all_param_spaces():
     return PARAM_SPACES
 
 
-# 兼容旧接口
-get_all_strategy_types_including_optimized = get_all_strategy_types
-get_all_optimized_strategy_types = lambda: []
-get_optimized_param_space = lambda _: {}
+# ========== 废弃接口 ==========
+# 以下接口已废弃，仅为兼容旧代码保留，将在未来版本中移除
+
+def get_all_strategy_types_including_optimized():
+    """[DEPRECATED] 请使用 get_all_strategy_types() 替代"""
+    warnings.warn(
+        "get_all_strategy_types_including_optimized 已废弃，请使用 get_all_strategy_types() 替代",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_all_strategy_types()
+
+
+def get_all_optimized_strategy_types():
+    """[DEPRECATED] 所有策略已统一管理，无需区分基础和优化策略"""
+    warnings.warn(
+        "get_all_optimized_strategy_types 已废弃，所有策略已统一管理，请使用 get_all_strategy_types() 获取所有策略",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return []
+
+
+def get_optimized_param_space(strategy_type):
+    """[DEPRECATED] 请使用 get_param_space() 替代"""
+    warnings.warn(
+        "get_optimized_param_space 已废弃，请使用 get_param_space() 替代",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return {}

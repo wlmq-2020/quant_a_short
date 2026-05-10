@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-策略进化与动态更新系统 - 统一版
+策略进化与动态更新系统 - 统一版（性能优化版）
 整合 v2.0 的所有改进
 - 多指标综合评分
 - 统计分布分析
 - 自动淘汰阈值
 - 自动更新 config.py（不依赖 astor）
+【性能优化】
+- 缓存策略指标计算结果，避免重复计算
+- 缓存分布统计结果，避免多次遍历
 """
 import sys
 from pathlib import Path
@@ -18,6 +21,7 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 from collections import defaultdict
 import json
+import hashlib
 
 from config import Config
 from logger.logger import GlobalLogger
@@ -25,7 +29,7 @@ from logger.logger import GlobalLogger
 
 class StrategyEvolutionSystem:
     """策略进化系统 - 统一版"""
-    
+
     def __init__(self):
         self.logger = GlobalLogger(
             log_dir=Config.LOG_DIR,
@@ -34,6 +38,9 @@ class StrategyEvolutionSystem:
         )
         self.strategy_metrics = {}
         self.composite_scores = {}
+        # 缓存
+        self._metrics_cache = {}  # 缓存策略指标计算结果
+        self._distribution_cache = None  # 缓存分布统计结果
     
     def load_strategy_data(self) -> Tuple[Dict, Dict]:
         """加载策略数据"""
@@ -311,23 +318,10 @@ class StrategyEvolutionSystem:
             json.dump(report, f, ensure_ascii=False, indent=2)
         
         self.logger.info(f"  进化报告已保存: {report_path}")
-        
+
         latest_path = Config.REPORTS_DIR / "phase2/evolution_latest.json"
         with open(latest_path, 'w', encoding='utf-8') as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
-    
-    def _suggest_config_update(self, keep_strategies, eliminate_strategies):
-        """
-        建议如何更新配置文件（不再自动修改）
-
-        参数:
-            keep_strategies: 建议保留的策略列表
-            eliminate_strategies: 建议移除的策略列表
-        """
-        self.logger.info(f"\n  💡 配置更新建议:")
-        self.logger.info(f"     请手动编辑 config/best_strategy_params.json")
-        self.logger.info(f"     保留策略: {keep_strategies}")
-        self.logger.info(f"     移除策略: {eliminate_strategies}")
 
 
 if __name__ == '__main__':

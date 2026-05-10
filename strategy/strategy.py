@@ -45,6 +45,9 @@ import pandas as pd
 import numpy as np
 import backtrader as bt
 
+# 导入新增策略
+from .hot_volume_strategy import HotVolumeStrategy
+
 
 class BaseAStockStrategy(bt.Strategy):
     """
@@ -2546,6 +2549,7 @@ def get_strategy_class(strategy_type):
         'ma_volume': MaVolumeStrategy,
         'atr_stop': AtrStopStrategy,
         'composite': CompositeStrategy,
+        'hot_volume': HotVolumeStrategy,
     }
 
     if strategy_type not in strategy_map:
@@ -2565,7 +2569,7 @@ def get_all_strategy_types():
         'macd_with_atr', 'rsi_with_trend', 'turtle_with_filter',
         'ema_rsi', 'dual_macd', 'macd', 'boll_rsi', 'turtle_breakout',
         'triple_ema', 'kdj_macd_resonance', 'rsi_atr_adaptive',
-        'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite',
+        'macd_boll', 'kdj_rsi', 'ma_volume', 'atr_stop', 'composite', 'hot_volume',
     ]
 
 
