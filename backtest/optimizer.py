@@ -24,6 +24,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 import multiprocessing
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from logger.progress_logger import ProgressLogger
 from utils.atomic_writer import AtomicWriter
@@ -34,6 +35,10 @@ _param_spaces_cache = None
 _filtered_stock_data_cache = {}
 _best_params_cache = {}
 _best_params_cache_mtime = {}
+# 全局缓存锁，保护所有全局缓存的读写操作
+_global_cache_lock = threading.Lock()
+# 缓存大小限制（最多保存10个不同的时间范围过滤结果）
+_MAX_CACHE_SIZE = 10
 
 
 def split_data_by_time_window(df, window_size=756, step_size=180, train_ratio=0.8):
@@ -104,25 +109,34 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
 
     # 按时间范围筛选数据（使用缓存，避免重复过滤）
     cache_key = f"{start_date or 'all'}_{end_date or 'all'}"
-    if cache_key not in _filtered_stock_data_cache:
-        filtered_stock_data = {}
-        for stock_code, df in stock_data_dict.items():
-            if df is None or df.empty:
-                continue
-            df['date'] = pd.to_datetime(df['date'])
-            # 应用时间范围筛选
-            if start_date:
-                start_dt = pd.to_datetime(start_date)
-                df = df[df['date'] >= start_dt]
-            if end_date:
-                end_dt = pd.to_datetime(end_date)
-                df = df[df['date'] <= end_dt]
-            if len(df) < 30:  # 数据不足30天跳过
-                continue
-            filtered_stock_data[stock_code] = df
-        _filtered_stock_data_cache[cache_key] = filtered_stock_data
-    else:
-        filtered_stock_data = _filtered_stock_data_cache[cache_key]
+    with _global_cache_lock:
+        if cache_key not in _filtered_stock_data_cache:
+            # 缓存大小超过限制时，淘汰最早的缓存项
+            if len(_filtered_stock_data_cache) >= _MAX_CACHE_SIZE:
+                # 移除第一个key（Python 3.7+字典保持插入顺序）
+                oldest_key = next(iter(_filtered_stock_data_cache.keys()))
+                del _filtered_stock_data_cache[oldest_key]
+
+            filtered_stock_data = {}
+            for stock_code, df in stock_data_dict.items():
+                if df is None or df.empty:
+                    continue
+                df['date'] = pd.to_datetime(df['date'])
+                # 应用时间范围筛选
+                if start_date:
+                    start_dt = pd.to_datetime(start_date)
+                    df = df[df['date'] >= start_dt]
+                if end_date:
+                    end_dt = pd.to_datetime(end_date)
+                    df = df[df['date'] <= end_dt]
+                if len(df) < 30:  # 数据不足30天跳过
+                    continue
+                filtered_stock_data[stock_code] = df
+            _filtered_stock_data_cache[cache_key] = filtered_stock_data
+        else:
+            # 移动到末尾，表示最近使用（LRU）
+            filtered_stock_data = _filtered_stock_data_cache.pop(cache_key)
+            _filtered_stock_data_cache[cache_key] = filtered_stock_data
 
     # 股票级: 串行执行（移除嵌套线程池，避免死锁）
     results = backtester.run_backtest_batch(
@@ -165,7 +179,16 @@ def _evaluate_strategy_with_params(config, strategy_type, stock_data_dict, param
 
     # ========== 新增正则化惩罚 ==========
     # 1. 参数极端值惩罚：如果参数取到搜索空间的边界值，每个边界参数扣0.05分，最多扣0.2分
-    from strategy.param_space import get_all_param_spaces
+    # 使用全局缓存的param_spaces，避免重复导入
+    global _param_spaces_cache
+    with _global_cache_lock:
+        if _param_spaces_cache is None:
+            from strategy.param_space import generate_param_combinations, get_all_param_spaces
+            _param_spaces_cache = {
+                'generate_param_combinations': generate_param_combinations,
+                'get_all_param_spaces': get_all_param_spaces
+            }
+    get_all_param_spaces = _param_spaces_cache['get_all_param_spaces']
     param_spaces = get_all_param_spaces()
     param_space = param_spaces.get(strategy_type, {})
     boundary_penalty = 0
@@ -243,84 +266,109 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
 
     # 从 param_space.py 导入统一的参数组合生成函数（缓存导入结果）
     global _param_spaces_cache
-    if _param_spaces_cache is None:
-        from strategy.param_space import generate_param_combinations, get_all_param_spaces
-        _param_spaces_cache = {
-            'generate_param_combinations': generate_param_combinations,
-            'get_all_param_spaces': get_all_param_spaces
-        }
+    with _global_cache_lock:
+        if _param_spaces_cache is None:
+            from strategy.param_space import generate_param_combinations, get_all_param_spaces
+            _param_spaces_cache = {
+                'generate_param_combinations': generate_param_combinations,
+                'get_all_param_spaces': get_all_param_spaces
+            }
     generate_param_combinations = _param_spaces_cache['generate_param_combinations']
 
     param_combinations = generate_param_combinations(param_space_dict)
     logger.info(f"  参数组合数量: {len(param_combinations)}")
 
-    # 步骤1: 生成时间序列滚动窗口（取第一只股票的时间划分作为基准）
+    # 步骤1: 生成时间序列滚动窗口（计算所有股票的共同时间范围，生成统一窗口）
     windows = []
+    min_date = None
+    max_date = None
+
+    # 计算所有股票的共同时间范围
     for stock_code, df in stock_data_dict.items():
         if df is not None and not df.empty:
-            windows = split_data_by_time_window(df)
-            break
+            df['date'] = pd.to_datetime(df['date'])
+            stock_min = df['date'].min()
+            stock_max = df['date'].max()
+            if min_date is None or stock_min > min_date:
+                min_date = stock_min
+            if max_date is None or stock_max < max_date:
+                max_date = stock_max
+
+    if min_date is None or max_date is None:
+        logger.error(f"  无法获取有效数据时间范围")
+        return None
+
+    # 生成一个包含所有共同日期的虚拟DataFrame，用于生成统一窗口
+    date_range = pd.date_range(start=min_date, end=max_date, freq='D')
+    dummy_df = pd.DataFrame({'date': date_range, 'close': range(len(date_range))})
+    windows = split_data_by_time_window(dummy_df)
+
     if not windows:
         logger.error(f"  无法生成时间窗口，数据不足")
         return None
-    logger.info(f"  生成{len(windows)}个滚动交叉验证窗口")
+    logger.info(f"  生成{len(windows)}个滚动交叉验证窗口，时间范围: {min_date.date()} 到 {max_date.date()}")
 
     # 参数组合级: 4线程并发评估，总并发数控制在CPU核心数*2以内
     max_threads = min(multiprocessing.cpu_count(), 4)
-    logger.info(f"  使用 {max_threads} 个线程评估参数组合")
+    # 每批次提交的任务数，避免内存溢出（按每个任务占用1MB估算，1000个任务占用1GB左右）
+    batch_size = max_threads * 10
+    total_tasks = len(param_combinations) * len(windows) * 2  # 每个窗口有train和test两个任务
+    logger.info(f"  使用 {max_threads} 个线程评估参数组合，总任务数: {total_tasks}，每批次提交 {batch_size} 个任务")
 
     # 步骤2: 对每个参数组合在所有窗口上评估
     all_param_results = []
     completed = 0
-    total_tasks = len(param_combinations) * len(windows)
 
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = {}
-        for param_set in param_combinations:
-            for window_idx, (df_train, df_test) in enumerate(windows):
-                # 评估训练集
-                future_train = executor.submit(
+    # 收集结果（param_set是字典，需要转成可哈希的frozenset当key）
+    param_window_results = {}  # {frozenset(params.items()): {'params': param_set, 'windows': {window_idx: {'train': result, 'test': result}}}}
+
+    # 分批次提交任务，避免队列过长占用过多内存
+    all_tasks = []
+    for param_set in param_combinations:
+        for window_idx, (df_train, df_test) in enumerate(windows):
+            all_tasks.append(('train', param_set, window_idx, df_train))
+            all_tasks.append(('test', param_set, window_idx, df_test))
+
+    # 分批处理
+    for batch_idx, i in enumerate(range(0, len(all_tasks), batch_size)):
+        batch_tasks = all_tasks[i:i+batch_size]
+        logger.debug(f"  提交批次 {batch_idx + 1}/{(len(all_tasks) + batch_size - 1)//batch_size}，共 {len(batch_tasks)} 个任务")
+
+        with ThreadPoolExecutor(max_workers=max_threads) as executor:
+            futures = {}
+            for set_type, param_set, window_idx, df in batch_tasks:
+                future = executor.submit(
                     _evaluate_strategy_with_params,
                     config, strategy_type, stock_data_dict, param_set,
-                    start_date=df_train['date'].min().strftime('%Y-%m-%d'),
-                    end_date=df_train['date'].max().strftime('%Y-%m-%d')
+                    start_date=df['date'].min().strftime('%Y-%m-%d'),
+                    end_date=df['date'].max().strftime('%Y-%m-%d')
                 )
-                futures[future_train] = (param_set, window_idx, 'train')
+                futures[future] = (param_set, window_idx, set_type)
 
-                # 评估测试集
-                future_test = executor.submit(
-                    _evaluate_strategy_with_params,
-                    config, strategy_type, stock_data_dict, param_set,
-                    start_date=df_test['date'].min().strftime('%Y-%m-%d'),
-                    end_date=df_test['date'].max().strftime('%Y-%m-%d')
-                )
-                futures[future_test] = (param_set, window_idx, 'test')
+            # 收集本批次结果
+            for future in as_completed(futures):
+                param_set, window_idx, set_type = futures[future]
+                completed += 1
+                try:
+                    result = future.result()
+                    if result:
+                        # 将参数组合转成可哈希的key
+                        param_key = frozenset(param_set.items())
+                        if param_key not in param_window_results:
+                            param_window_results[param_key] = {
+                                'params': param_set,
+                                'windows': {}
+                            }
+                        if window_idx not in param_window_results[param_key]['windows']:
+                            param_window_results[param_key]['windows'][window_idx] = {}
+                        param_window_results[param_key]['windows'][window_idx][set_type] = result
+                    else:
+                        logger.warning(f"  参数组合{param_set}在窗口{window_idx}的{set_type}集评估无有效结果，跳过")
 
-        # 收集结果（param_set是字典，需要转成可哈希的frozenset当key）
-        param_window_results = {}  # {frozenset(params.items()): {'params': param_set, 'windows': {window_idx: {'train': result, 'test': result}}}}
-        for future in as_completed(futures):
-            param_set, window_idx, set_type = futures[future]
-            completed += 1
-            try:
-                result = future.result()
-                if result:
-                    # 将参数组合转成可哈希的key
-                    param_key = frozenset(param_set.items())
-                    if param_key not in param_window_results:
-                        param_window_results[param_key] = {
-                            'params': param_set,
-                            'windows': {}
-                        }
-                    if window_idx not in param_window_results[param_key]['windows']:
-                        param_window_results[param_key]['windows'][window_idx] = {}
-                    param_window_results[param_key]['windows'][window_idx][set_type] = result
-                else:
-                    logger.warning(f"  参数组合{param_set}在窗口{window_idx}的{set_type}集评估无有效结果，跳过")
-
-                if completed % 10 == 0 or completed == total_tasks:
-                    logger.info(f"  进度: {completed}/{total_tasks}")
-            except Exception as e:
-                logger.error(f"  参数组合评估失败: {str(e)}")
+                    if completed % 50 == 0 or completed == total_tasks:
+                        logger.info(f"  进度: {completed}/{total_tasks} ({completed/total_tasks*100:.1f}%)")
+                except Exception as e:
+                    logger.error(f"  参数组合评估失败: {str(e)}")
 
     if not param_window_results:
         logger.warning(f"  策略 {strategy_type} 没有有效的参数组合结果")
@@ -337,41 +385,30 @@ def _optimize_strategy_core(config, logger, strategy_type, stock_data_dict, para
         if not all('train' in w and 'test' in w for w in window_results.values()):
             continue
 
-        # 计算该参数在所有窗口的平均表现（向量化计算）
-        train_returns = []
-        test_returns = []
-        composite_scores = []
-        max_drawdowns = []
-        sharpes = []
-        win_rates = []
-        trades_list = []
+        # 计算该参数在所有窗口的平均表现（使用通用工具类）
+        from utils.common_utils import CommonUtils
 
+        # 收集测试集的所有指标
+        test_metrics_list = []
+        train_returns = []
         for res in window_results.values():
             train_returns.append(res['train']['avg_return'])
-            test_returns.append(res['test']['avg_return'])
-            composite_scores.append(res['test']['composite_score'])
-            max_drawdowns.append(res['test']['avg_max_drawdown'])
-            sharpes.append(res['test']['avg_sharpe'])
-            win_rates.append(res['test']['avg_win_rate'])
-            trades_list.append(res['test']['avg_trades'])
+            test_metrics_list.append(res['test'])
 
-        # 转换为numpy数组进行向量化计算
-        train_returns_np = np.array(train_returns)
-        test_returns_np = np.array(test_returns)
-        composite_scores_np = np.array(composite_scores)
-        max_drawdowns_np = np.array(max_drawdowns)
-        sharpes_np = np.array(sharpes)
-        win_rates_np = np.array(win_rates)
-        trades_np = np.array(trades_list)
+        # 计算测试集指标的统计值
+        test_stats = CommonUtils.calculate_metrics_stats(test_metrics_list)
 
-        avg_train_return = train_returns_np.mean()
-        avg_test_return = test_returns_np.mean()
-        avg_composite_score = composite_scores_np.mean()
-        avg_max_drawdown = max_drawdowns_np.mean()
-        avg_sharpe = sharpes_np.mean()
-        avg_win_rate = win_rates_np.mean()
-        avg_trades = trades_np.mean()
-        return_std = test_returns_np.std() if len(test_returns_np) > 1 else 0
+        # 计算训练集平均收益
+        avg_train_return = float(np.mean(train_returns)) if train_returns else 0.0
+
+        # 提取需要的统计值
+        avg_test_return = test_stats.get('avg_avg_return', 0.0)
+        avg_composite_score = test_stats.get('avg_composite_score', 0.0)
+        avg_max_drawdown = test_stats.get('avg_avg_max_drawdown', 0.0)
+        avg_sharpe = test_stats.get('avg_avg_sharpe', 0.0)
+        avg_win_rate = test_stats.get('avg_avg_win_rate', 0.0)
+        avg_trades = test_stats.get('avg_avg_trades', 0.0)
+        return_std = test_stats.get('std_avg_return', 0.0)
 
         # 过拟合校验：训练集收益超过测试集30%直接淘汰
         overfitting_degree = (avg_train_return - avg_test_return) / abs(avg_test_return) if avg_test_return != 0 else 1
@@ -562,7 +599,69 @@ class StrategyParameterOptimizer:
         参数:
             strategy_type: 策略类型
             result: 优化结果
-                self.logger.info(f"[策略优化] 策略 {strategy_type}: 本次收益未超越历史最优，不更新")
+            stock_data: 股票数据（可选，用于校验）
+        """
+        if not result or 'best_result' not in result:
+            self.logger.warning(f"[策略优化] 策略 {strategy_type}: 优化结果无效，不更新最优参数")
+            return
+
+        current_score = result['best_result']['composite_score']
+        current_params = result['best_params']
+        current_metrics = {
+            'avg_return': result['best_result']['avg_return'],
+            'avg_sharpe': result['best_result']['avg_sharpe'],
+            'avg_win_rate': result['best_result']['avg_win_rate'],
+            'avg_max_drawdown': result['best_result']['avg_max_drawdown'],
+            'calmar_ratio': result['best_result']['calmar_ratio'],
+            'composite_score': current_score,
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        # 加写锁，确保同一时间只有一个进程/线程更新
+        with self._file_lock:
+            # 读取历史最优参数
+            best_params = {}
+            if self._params_file.exists():
+                try:
+                    with open(self._params_file, 'r', encoding='utf-8') as f:
+                        best_params = json.load(f)
+                except Exception as e:
+                    self.logger.warning(f"[策略优化] 读取历史最优参数失败: {str(e)}，将覆盖原有文件")
+
+            # 比较得分，只有当前得分更高才更新
+            need_update = False
+            if strategy_type not in best_params:
+                need_update = True
+                self.logger.info(f"[策略优化] 策略 {strategy_type}: 首次记录最优参数，得分: {current_score:.4f}")
+            else:
+                history_score = best_params[strategy_type].get('metrics', {}).get('composite_score', 0)
+                if current_score > history_score:
+                    need_update = True
+                    self.logger.info(f"[策略优化] 策略 {strategy_type}: 本次得分 {current_score:.4f} 超越历史最优 {history_score:.4f}，更新参数")
+                else:
+                    self.logger.info(f"[策略优化] 策略 {strategy_type}: 本次得分 {current_score:.4f} 未超越历史最优 {history_score:.4f}，不更新")
+                    return
+
+            if need_update:
+                # 构建新的最优参数记录
+                best_params[strategy_type] = {
+                    'params': current_params,
+                    'metrics': current_metrics
+                }
+
+                # 原子写入文件
+                try:
+                    AtomicWriter.write_json(self._params_file, best_params, ensure_ascii=False, indent=2)
+
+                    # 更新全局缓存
+                    global _best_params_cache, _best_params_cache_mtime
+                    with _global_cache_lock:
+                        _best_params_cache[strategy_type] = best_params[strategy_type]
+                        _best_params_cache_mtime[strategy_type] = self._params_file.stat().st_mtime
+
+                    self.logger.info(f"[策略优化] 策略 {strategy_type} 最优参数更新成功")
+                except Exception as e:
+                    self.logger.error(f"[策略优化] 写入最优参数失败: {str(e)}")
 
     def optimize_all_strategies(self, stock_data, strategy_types=None, optimization_metric='composite_score'):
         """
@@ -716,3 +815,15 @@ class StrategyParameterOptimizer:
         # 这里不再需要统一调用 _update_each_strategy_best_params()
 
         return str(report_path)
+
+    @staticmethod
+    def clear_cache():
+        """
+        清理全局缓存，释放内存
+        在所有优化完成后调用，避免内存泄漏
+        """
+        global _filtered_stock_data_cache, _best_params_cache, _best_params_cache_mtime
+        with _global_cache_lock:
+            _filtered_stock_data_cache.clear()
+            _best_params_cache.clear()
+            _best_params_cache_mtime.clear()

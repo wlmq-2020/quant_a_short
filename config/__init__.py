@@ -3,6 +3,7 @@
 全局配置模块
 集中管理所有配置参数
 """
+from pathlib import Path
 from .settings import ConfigSettings
 from .params import ConfigParams
 

@@ -22,14 +22,6 @@ class FileRWLock:
         self._lock_fd: Optional[int] = None
         self._is_locked = False
 
-    def acquire_read(self) -> bool:
-        """获取共享读锁，多个进程可同时读取"""
-        return self._acquire(shared=True)
-
-    def acquire_write(self) -> bool:
-        """获取排他写锁，同一时间仅一个进程可写入"""
-        return self._acquire(shared=False)
-
     def release(self) -> None:
         """释放锁"""
         if self._lock_fd is not None:

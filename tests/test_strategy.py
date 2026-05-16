@@ -163,16 +163,16 @@ class TestStrategyList(unittest.TestCase):
         from strategy.param_space import get_all_strategy_types
         strategy_types = get_all_strategy_types()
 
-        # 所有策略应该有36个（统一后）
-        self.assertEqual(len(strategy_types), 36)
+        # 所有策略应该有37个（统一后）
+        self.assertEqual(len(strategy_types), 37)
 
     def test_get_all_strategy_types_including_optimized(self):
         """测试包含优化策略的完整列表"""
         from strategy.param_space import get_all_strategy_types_including_optimized
         all_strategy_types = get_all_strategy_types_including_optimized()
 
-        # 总共应该有36个策略
-        self.assertEqual(len(all_strategy_types), 36)
+        # 总共应该有37个策略
+        self.assertEqual(len(all_strategy_types), 37)
 
     def test_factory_function_exists(self):
         """测试策略工厂函数存在"""
@@ -199,7 +199,7 @@ class TestStrategyParamSpace(unittest.TestCase):
         """测试参数空间存在"""
         from strategy.param_space import PARAM_SPACES
         self.assertIsInstance(PARAM_SPACES, dict)
-        self.assertEqual(len(PARAM_SPACES), 36)
+        self.assertEqual(len(PARAM_SPACES), 37)
 
     def test_each_strategy_has_param_space(self):
         """测试每个策略都有参数空间"""
@@ -265,8 +265,8 @@ class TestStrategyModuleDocstring(unittest.TestCase):
         from strategy import strategy
         doc = strategy.__doc__
 
-        # 检查文档中包含"36个策略"
-        self.assertIn('36', doc)
+        # 检查文档中包含"37个策略"
+        self.assertIn('37', doc)
 
 
 if __name__ == '__main__':

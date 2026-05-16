@@ -7,21 +7,8 @@ import warnings
 from itertools import product
 
 
-# 所有策略的参数空间定义（共37个）
+# 所有策略的参数空间定义（共36个）
 PARAM_SPACES = {
-    'hot_volume': {
-        'hot_period': [3, 5],
-        'hot_top_n': [5, 10, 15],
-        'steady_period': [7, 10],
-        'steady_threshold': [0.2, 0.3, 0.4],
-        'week_ma_period': [15, 20],
-        'week_volume_ratio': [1.2, 1.5, 1.8],
-        'day_ma_period': [7, 10],
-        'day_volume_ratio': [1.5, 2.0, 2.5],
-        'stop_loss_ratio': [0.03, 0.05],
-        'take_profit_ratio': [0.10, 0.15, 0.20],
-        'position_ratio': [0.6, 0.8],
-    },
     'macd_kdj': {
         'macd_fast': [8, 12],
         'macd_slow': [20, 26],
@@ -359,12 +346,12 @@ def generate_param_combinations(param_space):
 
 
 def get_all_strategy_types():
-    """获取所有策略类型列表（36个策略，不区分基础和优化）"""
+    """获取所有策略类型列表（37个策略，不区分基础和优化）"""
     return list(PARAM_SPACES.keys())
 
 
 def get_all_param_spaces():
-    """获取所有参数空间（36个策略，不区分基础和优化）"""
+    """获取所有参数空间（37个策略，不区分基础和优化）"""
     return PARAM_SPACES
 
 

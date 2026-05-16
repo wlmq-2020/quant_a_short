@@ -14,11 +14,14 @@ import backtrader as bt
 from datetime import datetime
 import copy
 import multiprocessing
+import threading
+import json
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 # 导入自定义交易规则类
 from backtest.commissions import AStockCommission
 from backtest.slippage import MarketCapSlippage
+from strategy.strategy import get_strategy_class
 
 
 def run_single_strategy_process(strategy_type, stock_data_dict, config_dict):
@@ -40,7 +43,6 @@ def run_single_strategy_process(strategy_type, stock_data_dict, config_dict):
             'duration': 耗时
         }
     """
-    from datetime import datetime
     import sys
     from pathlib import Path
 
@@ -104,12 +106,10 @@ class BacktraderBacktester:
         self.temp_dir = Path(config.TEMP_DIR)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
-        # 导入策略
-        from strategy.strategy import get_strategy_class
+        # 策略获取函数
         self.get_strategy_class = get_strategy_class
 
         # 全局线程池（重用，避免每次创建销毁）
-        import multiprocessing
         self._default_max_workers = min(multiprocessing.cpu_count(), 4)
         self._thread_pool = ThreadPoolExecutor(max_workers=self._default_max_workers)
         self._thread_pool_max_workers = self._default_max_workers
@@ -117,12 +117,34 @@ class BacktraderBacktester:
         # 缓存最优参数
         self._best_params_cache = None
         self._best_params_mtime = 0
+        # 实例级缓存锁，保护最优参数缓存的读写
+        self._cache_lock = threading.Lock()
+        # 最优参数文件读写锁
+        from utils.file_rw_lock import FileRWLock
+        self._best_params_lock = FileRWLock(config.CONFIG_DIR / "best_strategy_params.json")
 
     def close(self):
         """关闭资源，释放线程池，避免资源泄漏"""
         if hasattr(self, '_thread_pool') and self._thread_pool:
             self._thread_pool.shutdown(wait=True)
             self._thread_pool = None
+
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口，自动关闭资源"""
+        self.close()
+        return False  # 不抑制异常
+
+    def __del__(self):
+        """析构方法，确保进程退出时资源被释放"""
+        try:
+            self.close()
+        except Exception:
+            # 析构方法中忽略异常，避免程序崩溃
+            pass
 
     def _build_strategy_params(self, strategy_type, config, override_params=None):
         """
@@ -152,30 +174,33 @@ class BacktraderBacktester:
         }
 
         # 从最优参数文件加载策略特定参数
-        import json
         best_params_file = config.CONFIG_DIR / "best_strategy_params.json"
 
         found_in_json = False
         all_best_params = {}
 
         # 缓存最优参数，避免重复读文件，文件修改后自动刷新
-        if best_params_file.exists():
-            current_mtime = best_params_file.stat().st_mtime
-            # 如果缓存有效，直接使用
-            if current_mtime == self._best_params_mtime and self._best_params_cache is not None:
-                all_best_params = self._best_params_cache
-            else:
-                # 缓存失效，重新读取
-                try:
-                    with open(best_params_file, 'r', encoding='utf-8') as f:
-                        all_best_params = json.load(f)
+        with self._cache_lock:
+            try:
+                current_mtime = best_params_file.stat().st_mtime
+                # 如果缓存有效，直接使用
+                if current_mtime == self._best_params_mtime and self._best_params_cache is not None:
+                    all_best_params = self._best_params_cache
+                else:
+                    # 缓存失效，加读锁重新读取文件
+                    with self._best_params_lock.acquire_read():
+                        with open(best_params_file, 'r', encoding='utf-8') as f:
+                            all_best_params = json.load(f)
                     # 更新缓存
                     self._best_params_cache = all_best_params
                     self._best_params_mtime = current_mtime
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"读取最优参数文件失败: {str(e)}")
-                    all_best_params = {}
+            except FileNotFoundError:
+                # 文件不存在，使用空字典
+                all_best_params = {}
+            except Exception as e:
+                if self.logger:
+                    self.logger.warning(f"读取最优参数文件失败: {str(e)}")
+                all_best_params = {}
 
         if strategy_type in all_best_params:
             strategy_data = all_best_params[strategy_type]
@@ -212,8 +237,30 @@ class BacktraderBacktester:
         """
         if df is None or df.empty:
             if self.logger:
-                self.logger.error("数据为空，无法回测")
+                stock_info = f"{stock_code} " if stock_code else ""
+                self.logger.error(f"{stock_info}数据为空，无法回测")
             return None
+
+        # 数据校验
+        required_columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            if self.logger:
+                stock_info = f"{stock_code} " if stock_code else ""
+                self.logger.error(f"{stock_info}数据缺少必要列: {missing_columns}，无法回测")
+            return None
+
+        # 检查是否有缺失值
+        if df[required_columns].isna().any().any():
+            if self.logger:
+                stock_info = f"{stock_code} " if stock_code else ""
+                self.logger.warning(f"{stock_info}数据包含缺失值，将尝试自动清理")
+            # 简单清理缺失值
+            df = df.dropna(subset=required_columns).copy()
+            if df.empty:
+                if self.logger:
+                    self.logger.error(f"{stock_info}清理后数据为空，无法回测")
+                return None
 
         try:
             # 1. 创建Cerebro引擎
@@ -224,8 +271,7 @@ class BacktraderBacktester:
             cerebro.adddata(data_feed)
 
             # 3. 添加策略
-            from strategy.strategy import get_strategy_class
-            strategy_class = get_strategy_class(self.config.STRATEGY_TYPE)
+            strategy_class = self.get_strategy_class(self.config.STRATEGY_TYPE)
             params = self._build_strategy_params(self.config.STRATEGY_TYPE, self.config)
             cerebro.addstrategy(strategy_class, **params)
 
@@ -237,7 +283,8 @@ class BacktraderBacktester:
                 commission=self.config.COMMISSION_RATE,
                 stamp_duty=self.config.STAMP_DUTY_RATE,
                 transfer_fee=self.config.TRANSFER_FEE_RATE,
-                min_commission=self.config.MIN_COMMISSION
+                min_commission=self.config.MIN_COMMISSION,
+                stock_code=stock_code
             )
             cerebro.broker.addcommissioninfo(comminfo)
 
@@ -527,8 +574,27 @@ class BacktraderBacktester:
         """
         if df is None or df.empty:
             if self.logger:
-                self.logger.error("数据为空，无法回测")
+                self.logger.error(f"{stock_code} 数据为空，无法回测")
             return None
+
+        # 数据校验
+        required_columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            if self.logger:
+                self.logger.error(f"{stock_code} 数据缺少必要列: {missing_columns}，无法回测")
+            return None
+
+        # 检查是否有缺失值
+        if df[required_columns].isna().any().any():
+            if self.logger:
+                self.logger.warning(f"{stock_code} 数据包含缺失值，将尝试自动清理")
+            # 简单清理缺失值
+            df = df.dropna(subset=required_columns).copy()
+            if df.empty:
+                if self.logger:
+                    self.logger.error(f"{stock_code} 清理后数据为空，无法回测")
+                return None
 
         try:
             # 1. 创建Cerebro引擎
@@ -552,7 +618,8 @@ class BacktraderBacktester:
                 commission=self.config.COMMISSION_RATE,
                 stamp_duty=self.config.STAMP_DUTY_RATE,
                 transfer_fee=self.config.TRANSFER_FEE_RATE,
-                min_commission=self.config.MIN_COMMISSION
+                min_commission=self.config.MIN_COMMISSION,
+                stock_code=stock_code
             )
             cerebro.broker.addcommissioninfo(comminfo)
 
@@ -579,7 +646,7 @@ class BacktraderBacktester:
 
         except Exception as e:
             if self.logger:
-                self.logger.error(f"回测异常: {str(e)}")
+                self.logger.error(f"{stock_code} 回测异常: {str(e)}", exc_info=True)
             return None
 
     def run_backtest_batch(self, stock_data, strategy_type, override_params=None, max_workers=None):

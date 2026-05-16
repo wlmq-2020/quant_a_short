@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 A股短线策略模块 - Backtrader版本（完整版）
-提供多种A股高胜率短线策略 - 共36个策略
+提供多种A股高胜率短线策略 - 共37个策略
 
-策略列表（共36个）:
+策略列表（共37个）:
 1. macd_kdj              - MACD+KDJ共振策略
 2. rsi                   - RSI超买超卖策略
 3. bollinger             - 布林带策略
@@ -40,13 +40,11 @@ A股短线策略模块 - Backtrader版本（完整版）
 34. ma_volume            - 均线交叉+成交量确认策略
 35. atr_stop             - ATR波动率止损策略
 36. composite            - 综合多因子策略
+37. hot_volume           - 热点板块成交量策略
 """
 import pandas as pd
 import numpy as np
 import backtrader as bt
-
-# 导入新增策略
-from .hot_volume_strategy import HotVolumeStrategy
 
 
 class BaseAStockStrategy(bt.Strategy):
@@ -114,8 +112,44 @@ class BaseAStockStrategy(bt.Strategy):
             return
 
     def next(self):
-        """策略逻辑 - 由子类实现"""
-        pass
+        """策略主逻辑（通用框架，子类不需要重写，只需实现signal_buy和signal_sell方法）"""
+        if self.order:
+            return
+
+        if not self.position:
+            # 空仓状态，检查买入信号
+            buy_signal = self._signal_buy()
+            if buy_signal:
+                # 如果返回的是数字，表示自定义仓位大小
+                if isinstance(buy_signal, (int, float)) and buy_signal > 0:
+                    size = int(buy_signal)
+                else:
+                    size = self.calculate_position_size()
+                if size > 0:
+                    self.order = self.buy(size=size)
+        else:
+            # 持仓状态，检查卖出信号
+            profit_pct = self.calculate_profit_pct()
+            t1_ok = self.check_t1_rule()
+            stop_loss = self.check_stop_loss()
+            take_profit = self.check_take_profit()
+
+            if (self._signal_sell() or stop_loss or take_profit) and t1_ok:
+                self.order = self.sell(size=self.position.size)
+
+    def _signal_buy(self):
+        """
+        买入信号判断 - 由子类实现
+        返回True表示应该买入
+        """
+        return False
+
+    def _signal_sell(self):
+        """
+        卖出信号判断 - 由子类实现
+        返回True表示应该卖出
+        """
+        return False
 
     def stop(self):
         """策略结束"""
@@ -144,8 +178,11 @@ class BaseAStockStrategy(bt.Strategy):
             return True
         if not self.position_entry_date:
             return False
-        days_held = (self.datas[0].datetime.date(0) - self.position_entry_date).days
-        return days_held >= 1
+        from utils.common_utils import CommonUtils
+        return CommonUtils.check_t1_rule(
+            buy_date=self.position_entry_date,
+            sell_date=self.datas[0].datetime.date(0)
+        )
 
     def calculate_profit_pct(self):
         """
@@ -198,6 +235,85 @@ class BaseAStockStrategy(bt.Strategy):
                 self.volume_ma10 = SimpleMovingAverage(self.datavolume, period=10)
             volume_ma = self.volume_ma10[0]
         return self.datavolume[0] >= volume_ma * self.p.volume_ratio
+
+    def is_suspended(self):
+        """
+        检查当天是否停牌（通用方法）
+        成交量为0时认为是停牌
+
+        返回:
+            bool: True表示当天停牌
+        """
+        return self.datavolume[0] <= 0
+
+    def calculate_limit_up_price(self):
+        """
+        计算当天的涨停价格（通用方法）
+        普通股票：前收盘价 * 1.1，保留2位小数
+        ST/*ST股票：前收盘价 * 1.05，保留2位小数
+        新股上市前5日不设涨跌幅，这里暂时不处理
+
+        返回:
+            float: 涨停价格
+        """
+        if len(self) < 1:
+            return self.dataclose[0] * 1.1
+        prev_close = self.dataclose[-1]
+        # TODO: 后续添加ST股票判断逻辑，现在默认10%
+        return round(prev_close * 1.1, 2)
+
+    def calculate_limit_down_price(self):
+        """
+        计算当天的跌停价格（通用方法）
+        普通股票：前收盘价 * 0.9，保留2位小数
+        ST/*ST股票：前收盘价 * 0.95，保留2位小数
+
+        返回:
+            float: 跌停价格
+        """
+        if len(self) < 1:
+            return self.dataclose[0] * 0.9
+        prev_close = self.dataclose[-1]
+        # TODO: 后续添加ST股票判断逻辑，现在默认10%
+        return round(prev_close * 0.9, 2)
+
+    def buy(self, *args, **kwargs):
+        """
+        重写buy方法，添加涨跌停和停牌检查
+        """
+        # 停牌时不允许买入
+        if self.is_suspended():
+            return None
+
+        # 获取订单价格，如果没有指定则使用当前收盘价
+        price = kwargs.get('price', self.dataclose[0])
+        limit_up = self.calculate_limit_up_price()
+
+        # 如果订单价格超过涨停价，调整为涨停价
+        if price > limit_up:
+            kwargs['price'] = limit_up
+
+        # 调用父类的buy方法
+        return super().buy(*args, **kwargs)
+
+    def sell(self, *args, **kwargs):
+        """
+        重写sell方法，添加涨跌停和停牌检查
+        """
+        # 停牌时不允许卖出
+        if self.is_suspended():
+            return None
+
+        # 获取订单价格，如果没有指定则使用当前收盘价
+        price = kwargs.get('price', self.dataclose[0])
+        limit_down = self.calculate_limit_down_price()
+
+        # 如果订单价格低于跌停价，调整为跌停价
+        if price < limit_down:
+            kwargs['price'] = limit_down
+
+        # 调用父类的sell方法
+        return super().sell(*args, **kwargs)
 
 
 # ============================================================================
@@ -288,36 +404,18 @@ class RsiStrategy(BaseAStockStrategy):
             self.datavolume, period=10
         )
 
-    def next(self):
-        if self.order:
-            return
+    def _signal_buy(self):
+        """买入信号：RSI从超卖区间反弹"""
+        rsi_rebound = (self.rsi[0] > self.rsi[-1] and
+                      self.rsi[-1] < self.p.rsi_oversold)
+        volume_ok = self.check_volume_filter(self.volume_ma10[0])
+        return rsi_rebound and volume_ok
 
-        if not self.position:
-            rsi_rebound = (self.rsi[0] > self.rsi[-1] and
-                          self.rsi[-1] < self.p.rsi_oversold)
-            volume_ok = not self.p.volume_filter or (
-                self.datavolume[0] >= self.volume_ma10[0] * self.p.volume_ratio
-            )
-            if rsi_rebound and volume_ok:
-                cash = self.broker.getcash()
-                position_value = cash * self.p.position_ratio
-                size = position_value // self.dataclose[0]
-                if size > 0:
-                    self.order = self.buy(size=size)
-        else:
-            rsi_falling = (self.rsi[0] < self.rsi[-1] and
-                          self.rsi[-1] > self.p.rsi_overbought)
-            t1_ok = not self.p.t1_rule or (
-                self.position_entry_date and
-                (self.datas[0].datetime.date(0) - self.position_entry_date).days >= 1
-            )
-            current_price = self.dataclose[0]
-            profit_pct = (current_price - self.position_entry_price) / self.position_entry_price
-            stop_loss = profit_pct <= -self.p.stop_loss_ratio
-            take_profit = profit_pct >= self.p.take_profit_ratio
-
-            if ((rsi_falling or stop_loss or take_profit) and t1_ok):
-                self.order = self.sell(size=self.position.size)
+    def _signal_sell(self):
+        """卖出信号：RSI从超买区间回落"""
+        rsi_falling = (self.rsi[0] < self.rsi[-1] and
+                      self.rsi[-1] > self.p.rsi_overbought)
+        return rsi_falling
 
 
 class BollingerStrategy(BaseAStockStrategy):
@@ -2406,38 +2504,19 @@ class RsiStrategyWithTrendFilter(BaseAStockStrategy):
             self.datavolume, period=10
         )
 
-    def next(self):
-        if self.order:
-            return
+    def _signal_buy(self):
+        """买入信号：上升趋势中，RSI超卖，价格触及布林带下轨，成交量放大"""
+        trend_up = self.dataclose[0] > self.ma[0]
+        rsi_oversold = self.rsi[0] < self.p.rsi_oversold
+        hit_boll_low = self.dataclose[0] <= self.bollinger.lines.bot[0]
+        volume_ok = self.check_volume_filter(self.volume_ma10[0])
+        return trend_up and rsi_oversold and hit_boll_low and volume_ok
 
-        if not self.position:
-            trend_up = self.dataclose[0] > self.ma[0]
-            rsi_oversold = self.rsi[0] < self.p.rsi_oversold
-            hit_boll_low = self.dataclose[0] <= self.bollinger.lines.bot[0]
-            volume_ok = not self.p.volume_filter or (
-                self.datavolume[0] >= self.volume_ma10[0] * self.p.volume_ratio
-            )
-
-            if trend_up and rsi_oversold and hit_boll_low and volume_ok:
-                cash = self.broker.getcash()
-                position_value = cash * self.p.position_ratio
-                size = position_value // self.dataclose[0]
-                if size > 0:
-                    self.order = self.buy(size=size)
-        else:
-            rsi_overbought = self.rsi[0] > self.p.rsi_overbought
-            hit_boll_mid = self.dataclose[0] >= self.bollinger.lines.mid[0]
-            t1_ok = not self.p.t1_rule or (
-                self.position_entry_date and
-                (self.datas[0].datetime.date(0) - self.position_entry_date).days >= 1
-            )
-            current_price = self.dataclose[0]
-            profit_pct = (current_price - self.position_entry_price) / self.position_entry_price
-            stop_loss = profit_pct <= -self.p.stop_loss_ratio
-            take_profit = profit_pct >= self.p.take_profit_ratio
-
-            if ((rsi_overbought or hit_boll_mid or stop_loss or take_profit) and t1_ok):
-                self.order = self.sell(size=self.position.size)
+    def _signal_sell(self):
+        """卖出信号：RSI超买，价格触及布林带中轨"""
+        rsi_overbought = self.rsi[0] > self.p.rsi_overbought
+        hit_boll_mid = self.dataclose[0] >= self.bollinger.lines.mid[0]
+        return rsi_overbought or hit_boll_mid
 
 
 class TurtleStrategyWithFilter(BaseAStockStrategy):
@@ -2474,37 +2553,29 @@ class TurtleStrategyWithFilter(BaseAStockStrategy):
             self.datavolume, period=10
         )
 
-    def next(self):
-        if self.order:
-            return
+    def _signal_buy(self):
+        """买入信号：价格突破20日高点，成交量放大，根据ATR波动率调整仓位"""
+        break_up = self.dataclose[0] > self.entry_high[-1]
+        volume_confirm = self.datavolume[0] > self.volume_ma[0] * 1.2
+        volume_ok = not self.p.volume_filter or volume_confirm
 
-        if not self.position:
-            break_up = self.dataclose[0] > self.entry_high[-1]
-            volume_confirm = self.datavolume[0] > self.volume_ma[0] * 1.2
-            volume_ok = not self.p.volume_filter or volume_confirm
+        if break_up and volume_ok:
+            atr_normal = self.atr[0] / self.dataclose[0] < 0.05
+            ratio = self.p.position_ratio if atr_normal else self.p.position_ratio * 0.5
+            cash = self.broker.getcash()
+            position_value = cash * ratio
+            size = position_value // self.dataclose[0]
+            return size if size > 0 else False
+        return False
 
-            if break_up and volume_ok:
-                atr_normal = self.atr[0] / self.dataclose[0] < 0.05
-                ratio = self.p.position_ratio if atr_normal else self.p.position_ratio * 0.5
-                cash = self.broker.getcash()
-                position_value = cash * ratio
-                size = position_value // self.dataclose[0]
-                if size > 0:
-                    self.order = self.buy(size=size)
-        else:
-            break_down = self.dataclose[0] < self.exit_low[-1]
-            t1_ok = not self.p.t1_rule or (
-                self.position_entry_date and
-                (self.datas[0].datetime.date(0) - self.position_entry_date).days >= 1
-            )
-            current_price = self.dataclose[0]
-            profit_pct = (current_price - self.position_entry_price) / self.position_entry_price
-            stop_loss = profit_pct <= -self.p.stop_loss_ratio
-            take_profit = profit_pct >= self.p.take_profit_ratio
+    def _signal_sell(self):
+        """卖出信号：价格跌破10日低点"""
+        break_down = self.dataclose[0] < self.exit_low[-1]
+        return break_down
 
-            if ((break_down or stop_loss or take_profit) and t1_ok):
-                self.order = self.sell(size=self.position.size)
 
+# 导入新增策略
+from .hot_volume_strategy import HotVolumeStrategy
 
 # ============================================================================
 # 策略工厂函数

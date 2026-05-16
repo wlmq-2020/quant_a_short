@@ -5,7 +5,7 @@ A股滑点计算类，根据股票市值大小不同设置不同滑点
 import backtrader as bt
 
 
-class MarketCapSlippage(bt.Slippage):
+class MarketCapSlippage:
     """
     基于市值的滑点模型：
     - 大盘股（上证50/沪深300成分股）：默认0.1%滑点

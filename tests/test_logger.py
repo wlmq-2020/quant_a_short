@@ -81,7 +81,8 @@ class TestProgressLogger(unittest.TestCase):
             self.fail(f"导入失败: {e}")
 
     @patch('logger.progress_logger.Path.mkdir')
-    def test_progress_logger_init(self, mock_mkdir):
+    @patch('builtins.open', new_callable=mock_open)
+    def test_progress_logger_init(self, mock_file, mock_mkdir):
         """测试 ProgressLogger 初始化"""
         from logger.progress_logger import ProgressLogger
 
@@ -164,7 +165,8 @@ class TestProgressLogger(unittest.TestCase):
             self.fail(f"print_progress_summary 调用失败: {e}")
 
     @patch('logger.progress_logger.Path.mkdir')
-    def test_get_log_file(self, mock_mkdir):
+    @patch('builtins.open', new_callable=mock_open)
+    def test_get_log_file(self, mock_file, mock_mkdir):
         """测试 get_log_file 方法"""
         from logger.progress_logger import ProgressLogger
 

@@ -15,6 +15,11 @@ A股短线量化交易系统 - 主引擎
 - main.py         - 主入口（同级只允许这一个文件）
 """
 import sys
+import io
+# 修复Windows控制台中文乱码问题
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from pathlib import Path
 from datetime import datetime
 
@@ -27,114 +32,6 @@ from logger.logger import GlobalLogger
 from data_fetcher.data_fetcher import AStockDataFetcher
 
 
-def check_project_structure():
-    """
-    检查项目结构是否符合规则
-    【强制】main.py同级只允许留着一个文件（main.py自己）
-    """
-    print("=" * 80)
-    print("检查项目结构...")
-    print("=" * 80)
-
-    # 获取main.py同级所有文件
-    main_dir = Path(__file__).parent
-    files_in_main_dir = list(main_dir.glob("*"))
-
-    # 允许的文件和目录(下面2个参数禁止自动修改必须由我本人主动修改, 如果修改的时候看到要修改这种 必须提示我)
-    allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config', 'scripts', 'tests'}
-    allowed_files = {'main.py', 'config.py', 'README.md', 'requirements.txt', '.gitignore'}
-
-    invalid_files = []
-
-    for item in files_in_main_dir:
-        if item.name.startswith('.') and item.is_dir():
-            continue  # 跳过隐藏目录
-        if item.is_dir():
-            if item.name not in allowed_dirs:
-                invalid_files.append(f"目录: {item.name}")
-        else:
-            if item.name not in allowed_files:
-                invalid_files.append(f"文件: {item.name}")
-
-    if invalid_files:
-        print("\n[错误] 项目结构不符合规则！")
-        print("-" * 80)
-        print("以下文件/目录不应该在main.py同级：")
-        for f in invalid_files:
-            print(f"  - {f}")
-        print("\n【规则】")
-        print("  - strategy/       - 放策略相关代码")
-        print("  - backtest/       - 放回测相关代码")
-        print("  - data_fetcher/   - 放数据处理相关代码")
-        print("  - logger/         - 放日志和进度相关代码")
-        print("  - tests/          - 放测试脚本")
-        print("  - config.py       - 配置文件")
-        print("  - main.py         - 主入口（同级只允许这一个文件+config.py）")
-        print("=" * 80)
-        sys.exit(1)
-
-    print("[OK] 项目结构检查通过")
-    print("=" * 80)
-
-
-def run_unit_tests():
-    """
-    运行单元测试（快速验证核心逻辑）
-
-    返回: True 表示所有测试通过，False 表示有测试失败
-    """
-    print("\n" + "=" * 80)
-    print("运行单元测试（快速验证核心逻辑）...")
-    print("=" * 80)
-
-    import unittest
-    import sys
-    from io import StringIO
-
-    # 只运行核心测试（不包括外部API相关）
-    test_modules = [
-        'tests.test_strategy',
-        'tests.test_backtest',
-        'tests.test_data_fetcher',
-        'tests.test_logger',
-        'tests.test_config',
-    ]
-
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-
-    for module in test_modules:
-        try:
-            suite.addTests(loader.loadTestsFromName(module))
-        except Exception as e:
-            print(f"[ERROR] 加载测试模块失败: {module}")
-            print(f"        {e}")
-            sys.exit(1)
-
-    # 捕获测试输出
-    test_output = StringIO()
-    runner = unittest.TextTestRunner(stream=test_output, verbosity=1)
-    result = runner.run(suite)
-
-    # 输出测试输出
-    output = test_output.getvalue()
-    if output:
-        print(output)
-
-    # 输出测试结果汇总
-    print("=" * 80)
-    if result.wasSuccessful():
-        print(f"[OK] 所有单元测试通过！（运行 {result.testsRun} 个测试）")
-    else:
-        print(f"[ERROR] 单元测试失败！")
-        print(f"  - 失败: {len(result.failures)}")
-        print(f"  - 错误: {len(result.errors)}")
-        print("=" * 80)
-        print("\n提示：你可以运行 'python run_tests.py' 查看详细测试结果")
-        sys.exit(1)
-    print("=" * 80)
-
-    return True
 
 
 class QuantMainEngine:
@@ -290,283 +187,420 @@ class QuantMainEngine:
 
         self.logger.info("└" + "─" * 90 + "┘")
 
+    @staticmethod
+    def check_project_structure():
+        """
+        检查项目结构是否符合规则
+        【强制】main.py同级只允许留着一个文件（main.py自己）
+        """
+        print("=" * 80)
+        print("检查项目结构...")
+        print("=" * 80)
 
-def run_all_strategies_backtest():
-    """
-    运行所有策略对比
-    规则: 回测所有策略，按策略输出汇总报表，给出关键信息
-    """
-    print("=" * 80)
-    print("所有策略对比回测 (并发执行)")
-    print("=" * 80)
+        # 获取main.py同级所有文件
+        main_dir = Path(__file__).parent
+        files_in_main_dir = list(main_dir.glob("*"))
 
-    # 确保目录存在
-    Config.ensure_dirs()
+        # 允许的文件和目录(下面2个参数禁止自动修改必须由我本人主动修改, 如果修改的时候看到要修改这种 必须提示我)
+        allowed_dirs = {'strategy', 'backtest', 'data_fetcher', 'logger', 'reporter', 'paper_trade', 'cleaner', 'saved_data', 'reports', 'logs', 'temp', '__pycache__', '.git', 'tools', 'config', 'scripts', 'tests', 'utils'}
+        allowed_files = {'main.py', 'config.py', 'README.md', 'requirements.txt', '.gitignore', 'CLAUDE.md', 'RULE.md'}
 
-    # 初始化日志
-    from logger.logger import GlobalLogger
-    logger = GlobalLogger(
-        log_dir=Config.LOG_DIR,
-        log_level=Config.LOG_LEVEL,
-        retention_days=Config.LOG_RETENTION_DAYS
-    )
+        invalid_files = []
 
-    # 保存原始策略配置
-    original_strategy = Config.STRATEGY_TYPE
-
-    try:
-        # 初始化模块
-        data_fetcher = AStockDataFetcher(Config, logger)
-
-        # 1. 加载所有股票数据
-        print("\n[1/4] 加载股票数据...")
-        stock_data = {}
-        for stock_code in Config.get_stock_list():
-            df = data_fetcher.load_data(stock_code, 'daily')
-            if df is not None and not df.empty:
-                stock_data[stock_code] = df
-        print(f"  已加载 {len(stock_data)} 只股票数据")
-
-        # 2. 使用策略对比器进行回测
-        from backtest.backtester import StrategyComparator
-        comparator = StrategyComparator(Config, logger)
-
-        all_strategy_results = comparator.run_all_strategies_backtest(stock_data)
-
-        # 3. 生成策略对比报告
-        print("\n[3/4] 生成策略对比报告...")
-        strategy_summary, timings_data = comparator.generate_summary_report(all_strategy_results, stock_data)
-
-        # 4. 显示汇总结果
-        comparator.print_summary(strategy_summary, timings_data)
-
-        # 保存详细报告
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        report_path = Config.REPORTS_DIR / f"strategy_comparison_{timestamp}.txt"
-        comparator.save_detailed_report(all_strategy_results, strategy_summary, stock_data, report_path, timings_data)
-        print(f"\n  详细报告已保存: {report_path}")
-
-        # 恢复原始配置
-        Config.STRATEGY_TYPE = original_strategy
-
-        print("\n" + "=" * 120)
-        print("所有策略测试完成！")
-        print("=" * 120)
-
-        return True, all_strategy_results, strategy_summary
-
-    except Exception as e:
-        print(f"\n测试失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-
-        # 恢复原始配置
-        Config.STRATEGY_TYPE = original_strategy
-        return False, {}, []
-
-
-def run_optimization(strategy_type=None):
-    """
-    运行策略参数优化
-
-    参数:
-        strategy_type: 单个策略类型，None表示优化所有策略
-    """
-    print("=" * 80)
-    print("策略参数优化")
-    print("=" * 80)
-
-    # 确保目录存在
-    Config.ensure_dirs()
-
-    # 初始化日志
-    from logger.logger import GlobalLogger
-    logger = GlobalLogger(
-        log_dir=Config.LOG_DIR,
-        log_level=Config.LOG_LEVEL,
-        retention_days=Config.LOG_RETENTION_DAYS
-    )
-
-    try:
-        # 初始化模块
-        data_fetcher = AStockDataFetcher(Config, logger)
-
-        # 1. 加载所有股票数据
-        print("\n[1/5] 加载股票数据...")
-        stock_data = {}
-        for stock_code in Config.get_stock_list():
-            df = data_fetcher.load_data(stock_code, 'daily')
-            if df is not None and not df.empty:
-                stock_data[stock_code] = df
-        print(f"  已加载 {len(stock_data)} 只股票数据")
-
-        # 2. 先运行基准回测（只跑需要优化的策略）
-        print("\n[2/5] 运行基准回测（默认参数）...")
-        from backtest.backtester import StrategyComparator
-        comparator = StrategyComparator(Config, logger)
-
-        # 确定要优化的策略列表
-        from strategy.param_space import get_all_strategy_types, get_all_strategy_types_including_optimized
-        target_strategies = [strategy_type] if strategy_type else get_all_strategy_types_including_optimized()
-
-        # 只运行目标策略的基准回测
-        baseline_results = comparator.run_all_strategies_backtest(stock_data, target_strategies)
-
-        # 转换基准结果格式 - 正确解析 {'results': ..., 'timings': ...} 结构
-        print(f"  [调试] 基准回测返回类型: {type(baseline_results)}")
-        print(f"  [调试] 基准回测返回内容: {baseline_results.keys() if isinstance(baseline_results, dict) else 'N/A'}")
-
-        baseline_dict = {}
-        if isinstance(baseline_results, dict) and 'results' in baseline_results:
-            results_data = baseline_results['results']
-        else:
-            results_data = baseline_results
-
-        print(f"  基准回测完成，得到 {len(results_data)} 个策略结果")
-
-        for i, (strategy_type_key, results) in enumerate(results_data.items(), 1):
-            print(f"  [{i}/{len(results_data)}] 处理策略: {strategy_type_key}")
-            if results:
-                returns = [r['metrics']['total_return_pct'] for r in results.values()]
-                sharpe_ratios = [r['metrics']['sharpe_ratio'] for r in results.values() if r['metrics']['sharpe_ratio'] is not None]
-                win_rates = [r['metrics']['win_rate'] for r in results.values()]
-                max_drawdowns = [r['metrics']['max_drawdown_pct'] for r in results.values()]
-
-                baseline_dict[strategy_type_key] = {
-                    'avg_return': sum(returns) / len(returns) if returns else 0,
-                    'avg_sharpe': sum(sharpe_ratios) / len(sharpe_ratios) if sharpe_ratios else 0,
-                    'avg_win_rate': sum(win_rates) / len(win_rates) if win_rates else 0,
-                    'avg_max_drawdown': sum(max_drawdowns) / len(max_drawdowns) if max_drawdowns else 0,
-                }
-                print(f"  - {strategy_type_key}: 基准收益率 {baseline_dict[strategy_type_key]['avg_return']:+.2f}%")
+        for item in files_in_main_dir:
+            if item.name.startswith('.') and item.is_dir():
+                continue  # 跳过隐藏目录
+            if item.is_dir():
+                if item.name not in allowed_dirs:
+                    invalid_files.append(f"目录: {item.name}")
             else:
-                print(f"  - {strategy_type_key}: 无结果数据")
+                if item.name not in allowed_files:
+                    invalid_files.append(f"文件: {item.name}")
 
-        # 3. 运行参数优化
-        print("\n[3/5] 运行参数优化...")
-        from backtest.optimizer import StrategyParameterOptimizer
-        optimizer = StrategyParameterOptimizer(Config, logger)
+        if invalid_files:
+            print("\n[错误] 项目结构不符合规则！")
+            print("-" * 80)
+            print("以下文件/目录不应该在main.py同级：")
+            for f in invalid_files:
+                print(f"  - {f}")
+            print("\n【规则】")
+            print("  - strategy/       - 放策略相关代码")
+            print("  - backtest/       - 放回测相关代码")
+            print("  - data_fetcher/   - 放数据处理相关代码")
+            print("  - logger/         - 放日志和进度相关代码")
+            print("  - tests/          - 放测试脚本")
+            print("  - config.py       - 配置文件")
+            print("  - main.py         - 主入口（同级只允许这一个文件+config.py）")
+            print("=" * 80)
+            sys.exit(1)
 
-        if strategy_type:
-            # 优化单个策略
-            optimized_results = {
-                strategy_type: optimizer.optimize_strategy(strategy_type, stock_data)
-            }
+        print("[OK] 项目结构检查通过")
+        print("=" * 80)
+
+    @staticmethod
+    def run_unit_tests():
+        """
+        运行单元测试（快速验证核心逻辑）
+
+        返回: True 表示所有测试通过，False 表示有测试失败
+        """
+        print("\n" + "=" * 80)
+        print("运行单元测试（快速验证核心逻辑）...")
+        print("=" * 80)
+
+        import unittest
+        import sys
+        from io import StringIO
+
+        # 只运行核心测试（不包括外部API相关）
+        test_modules = [
+            'tests.test_strategy',
+            'tests.test_backtest',
+            'tests.test_data_fetcher',
+            'tests.test_logger',
+            'tests.test_config',
+        ]
+
+        loader = unittest.TestLoader()
+        suite = unittest.TestSuite()
+
+        for module in test_modules:
+            try:
+                suite.addTests(loader.loadTestsFromName(module))
+            except Exception as e:
+                print(f"[ERROR] 加载测试模块失败: {module}")
+                print(f"        {e}")
+                sys.exit(1)
+
+        # 捕获测试输出
+        test_output = StringIO()
+        runner = unittest.TextTestRunner(stream=test_output, verbosity=1)
+        result = runner.run(suite)
+
+        # 输出测试输出
+        output = test_output.getvalue()
+        if output:
+            print(output)
+
+        # 输出测试结果汇总
+        print("=" * 80)
+        if result.wasSuccessful():
+            print(f"[OK] 所有单元测试通过！（运行 {result.testsRun} 个测试）")
         else:
-            # 优化所有策略
-            optimized_results = optimizer.optimize_all_strategies(stock_data)
-
-        # 4. 生成对比报告
-        print("\n[4/5] 生成优化对比报告...")
-        report_path = optimizer.generate_optimization_report(baseline_dict, optimized_results)
-
-        # 5. 完成
-        print("\n[5/5] 优化完成!")
+            print(f"[ERROR] 单元测试失败！")
+            print(f"  - 失败: {len(result.failures)}")
+            print(f"  - 错误: {len(result.errors)}")
+            print("=" * 80)
+            print("\n提示：你可以运行 'python run_tests.py' 查看详细测试结果")
+            sys.exit(1)
         print("=" * 80)
 
         return True
 
-    except Exception as e:
-        print(f"\n优化失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+    @staticmethod
+    def fetch_all_stock_data():
+        """下载所有股票数据 - 调用data_fetcher模块"""
+        Config.ensure_dirs()
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+        data_fetcher = AStockDataFetcher(Config, logger)
+        return data_fetcher.fetch_all_with_print()
+
+    @staticmethod
+    def update_all_stock_data():
+        """更新所有股票数据 - 调用data_fetcher模块"""
+        Config.ensure_dirs()
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+        data_fetcher = AStockDataFetcher(Config, logger)
+        results = data_fetcher.update_all_stocks()
+
+        # 打印更新统计
+        print("=" * 80)
+        print("数据更新完成")
+        print("=" * 80)
+        print(f"总计: {results['total']} 只")
+        print(f"更新: {results['updated']} 只")
+        print(f"跳过: {results['skipped']} 只")
+        print(f"失败: {results['failed']} 只")
+        print("=" * 80)
+
+        return results['failed'] == 0
+
+    @staticmethod
+    def show_progress(task_name=None):
+        """显示进度日志"""
+        from logger.progress_logger import ProgressLogger
+        from config import Config
+        Config.ensure_dirs()
+        ProgressLogger.print_progress_summary(Config.LOG_DIR, task_name)
+
+    @staticmethod
+    def run_all_strategies_backtest():
+        """
+        运行所有策略对比
+        规则: 回测所有策略，按策略输出汇总报表，给出关键信息
+        """
+        print("=" * 80)
+        print("所有策略对比回测 (并发执行)")
+        print("=" * 80)
+
+        # 确保目录存在
+        Config.ensure_dirs()
+
+        # 初始化日志
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+
+        # 保存原始策略配置
+        original_strategy = Config.STRATEGY_TYPE
+
+        try:
+            # 初始化模块
+            data_fetcher = AStockDataFetcher(Config, logger)
+
+            # 1. 加载所有股票数据
+            print("\n[1/4] 加载股票数据...")
+            stock_data = {}
+            for stock_code in Config.get_stock_list():
+                df = data_fetcher.load_data(stock_code, 'daily')
+                if df is not None and not df.empty:
+                    stock_data[stock_code] = df
+            print(f"  已加载 {len(stock_data)} 只股票数据")
+
+            # 2. 使用策略对比器进行回测
+            from backtest.backtester import StrategyComparator
+            comparator = StrategyComparator(Config, logger)
+
+            all_strategy_results = comparator.run_all_strategies_backtest(stock_data)
+
+            # 3. 生成策略对比报告
+            print("\n[3/4] 生成策略对比报告...")
+            strategy_summary, timings_data = comparator.generate_summary_report(all_strategy_results, stock_data)
+
+            # 4. 显示汇总结果
+            comparator.print_summary(strategy_summary, timings_data)
+
+            # 保存详细报告
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            report_path = Config.REPORTS_DIR / f"strategy_comparison_{timestamp}.txt"
+            comparator.save_detailed_report(all_strategy_results, strategy_summary, stock_data, report_path, timings_data)
+            print(f"\n  详细报告已保存: {report_path}")
+
+            # 恢复原始配置
+            Config.STRATEGY_TYPE = original_strategy
+
+            print("\n" + "=" * 120)
+            print("所有策略测试完成！")
+            print("=" * 120)
+
+            return True, all_strategy_results, strategy_summary
+
+        except Exception as e:
+            print(f"\n测试失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+            # 恢复原始配置
+            Config.STRATEGY_TYPE = original_strategy
+            return False, {}, []
+
+    @staticmethod
+    def run_optimization(strategy_type=None):
+        """
+        运行策略参数优化
+
+        参数:
+            strategy_type: 单个策略类型，None表示优化所有策略
+        """
+        print("=" * 80)
+        print("策略参数优化")
+        print("=" * 80)
+
+        # 确保目录存在
+        Config.ensure_dirs()
+
+        # 初始化日志
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+
+        try:
+            # 初始化模块
+            data_fetcher = AStockDataFetcher(Config, logger)
+
+            # 1. 加载所有股票数据
+            print("\n[1/5] 加载股票数据...")
+            stock_data = {}
+            for stock_code in Config.get_stock_list():
+                df = data_fetcher.load_data(stock_code, 'daily')
+                if df is not None and not df.empty:
+                    stock_data[stock_code] = df
+            print(f"  已加载 {len(stock_data)} 只股票数据")
+
+            # 2. 先运行基准回测（只跑需要优化的策略）
+            print("\n[2/5] 运行基准回测（默认参数）...")
+            from backtest.backtester import StrategyComparator
+            comparator = StrategyComparator(Config, logger)
+
+            # 确定要优化的策略列表
+            from strategy.param_space import get_all_strategy_types, get_all_strategy_types_including_optimized
+            target_strategies = [strategy_type] if strategy_type else get_all_strategy_types_including_optimized()
+
+            # 只运行目标策略的基准回测
+            baseline_results = comparator.run_all_strategies_backtest(stock_data, target_strategies)
+
+            # 转换基准结果格式 - 正确解析 {'results': ..., 'timings': ...} 结构
+            print(f"  [调试] 基准回测返回类型: {type(baseline_results)}")
+            print(f"  [调试] 基准回测返回内容: {baseline_results.keys() if isinstance(baseline_results, dict) else 'N/A'}")
+
+            baseline_dict = {}
+            if isinstance(baseline_results, dict) and 'results' in baseline_results:
+                results_data = baseline_results['results']
+            else:
+                results_data = baseline_results
+
+            print(f"  基准回测完成，得到 {len(results_data)} 个策略结果")
+
+            for i, (strategy_type_key, results) in enumerate(results_data.items(), 1):
+                print(f"  [{i}/{len(results_data)}] 处理策略: {strategy_type_key}")
+                if results:
+                    returns = [r['metrics']['total_return_pct'] for r in results.values()]
+                    sharpe_ratios = [r['metrics']['sharpe_ratio'] for r in results.values() if r['metrics']['sharpe_ratio'] is not None]
+                    win_rates = [r['metrics']['win_rate'] for r in results.values()]
+                    max_drawdowns = [r['metrics']['max_drawdown_pct'] for r in results.values()]
+
+                    baseline_dict[strategy_type_key] = {
+                        'avg_return': sum(returns) / len(returns) if returns else 0,
+                        'avg_sharpe': sum(sharpe_ratios) / len(sharpe_ratios) if sharpe_ratios else 0,
+                        'avg_win_rate': sum(win_rates) / len(win_rates) if win_rates else 0,
+                        'avg_max_drawdown': sum(max_drawdowns) / len(max_drawdowns) if max_drawdowns else 0,
+                    }
+                    print(f"  - {strategy_type_key}: 基准收益率 {baseline_dict[strategy_type_key]['avg_return']:+.2f}%")
+                else:
+                    print(f"  - {strategy_type_key}: 无结果数据")
+
+            # 3. 运行参数优化
+            print("\n[3/5] 运行参数优化...")
+            from backtest.optimizer import StrategyParameterOptimizer
+            optimizer = StrategyParameterOptimizer(Config, logger)
+
+            if strategy_type:
+                # 优化单个策略
+                optimized_results = {
+                    strategy_type: optimizer.optimize_strategy(strategy_type, stock_data)
+                }
+            else:
+                # 优化所有策略
+                optimized_results = optimizer.optimize_all_strategies(stock_data)
+
+            # 4. 生成对比报告
+            print("\n[4/5] 生成优化对比报告...")
+            report_path = optimizer.generate_optimization_report(baseline_dict, optimized_results)
+
+            # 5. 完成
+            print("\n[5/5] 优化完成!")
+            print("=" * 80)
+
+            return True
+
+        except Exception as e:
+            print(f"\n优化失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
 
 
-def update_all_stock_data():
-    """更新所有股票数据 - 调用data_fetcher模块"""
-    Config.ensure_dirs()
-    from logger.logger import GlobalLogger
-    logger = GlobalLogger(
-        log_dir=Config.LOG_DIR,
-        log_level=Config.LOG_LEVEL,
-        retention_days=Config.LOG_RETENTION_DAYS
-    )
-    data_fetcher = AStockDataFetcher(Config, logger)
-    results = data_fetcher.update_all_stocks()
-    
-    # 打印更新统计
-    print("=" * 80)
-    print("数据更新完成")
-    print("=" * 80)
-    print(f"总计: {results['total']} 只")
-    print(f"更新: {results['updated']} 只")
-    print(f"跳过: {results['skipped']} 只")
-    print(f"失败: {results['failed']} 只")
-    print("=" * 80)
-    
-    return results['failed'] == 0
-
-
-def fetch_all_stock_data():
-    """下载所有股票数据 - 调用data_fetcher模块"""
-    Config.ensure_dirs()
-    from logger.logger import GlobalLogger
-    logger = GlobalLogger(
-        log_dir=Config.LOG_DIR,
-        log_level=Config.LOG_LEVEL,
-        retention_days=Config.LOG_RETENTION_DAYS
-    )
-    data_fetcher = AStockDataFetcher(Config, logger)
-    return data_fetcher.fetch_all_with_print()
-
-
-def show_progress(task_name=None):
-    """显示进度日志"""
-    from logger.progress_logger import ProgressLogger
-    from config import Config
-    Config.ensure_dirs()
-    ProgressLogger.print_progress_summary(Config.LOG_DIR, task_name)
 
 
 if __name__ == "__main__":
     # 【强制】检查项目结构规则
-    check_project_structure()
+    QuantMainEngine.check_project_structure()
 
     # 【强制】运行单元测试 - 测试不通过则无法继续
-    run_unit_tests()
+    QuantMainEngine.run_unit_tests()
 
-    # 检查命令行参数
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--fetch-data":
-            # 下载所有股票数据
-            success = fetch_all_stock_data()
-            sys.exit(0 if success else 1)
-        elif sys.argv[1] == "--update-data":
-            # 更新所有股票数据（增量更新）
-            success = update_all_stock_data()
-            sys.exit(0 if success else 1)
-        elif sys.argv[1] == "--compare-strategies":
-            # 循环测试所有策略并生成对比报告
-            success, _, _ = run_all_strategies_backtest()
-            sys.exit(0 if success else 1)
-        elif sys.argv[1] == "--optimize-all":
-            # 优化所有策略
-            success = run_optimization()
-            sys.exit(0 if success else 1)
-        elif sys.argv[1] == "--optimize" and len(sys.argv) > 2:
-            # 优化单个策略
-            success = run_optimization(sys.argv[2])
-            sys.exit(0 if success else 1)
-        elif sys.argv[1] == "--progress":
-            # 查看进度
-            task_name = sys.argv[2] if len(sys.argv) > 2 else None
-            show_progress(task_name)
-        elif sys.argv[1] == "--evolve-strategies":
-            # 策略进化：淘汰劣质策略，更新策略池
-            print("=" * 80)
-            print("策略进化系统")
-            print("=" * 80)
-            from strategy.strategy_evolution import StrategyEvolutionSystem
-            evolution = StrategyEvolutionSystem()
-            auto_update = len(sys.argv) > 2 and sys.argv[2] == "--auto-update"
-            keep, eliminate = evolution.run_evolution_cycle(auto_update_config=auto_update)
-            print("\n" + "=" * 80)
-            print(f"保留策略 ({len(keep)} 个): {keep}")
-            print(f"淘汰策略 ({len(eliminate)} 个): {eliminate}")
-            print("=" * 80)
-            sys.exit(0)
+    # 使用argparse解析命令行参数
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="A股短线量化交易系统 - Backtrader版",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  python main.py                          # 运行单策略回测（默认策略在config中配置）
+  python main.py --fetch-data             # 下载所有股票历史数据
+  python main.py --update-data            # 增量更新所有股票数据
+  python main.py --compare-strategies     # 对比所有策略的回测表现
+  python main.py --optimize-all           # 优化所有策略的参数
+  python main.py --optimize rsi           # 优化单个策略（rsi）的参数
+  python main.py --progress               # 查看任务进度日志
+  python main.py --evolve-strategies      # 运行策略进化，淘汰劣质策略
+  python main.py --evolve-strategies --auto-update  # 自动更新最优参数配置
+        """
+    )
 
-    # 运行完整系统（单策略回测）
-    engine = QuantMainEngine()
-    engine.run()
+    # 创建互斥组，只能选择一个操作
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--fetch-data", action="store_true", help="下载所有股票历史数据")
+    group.add_argument("--update-data", action="store_true", help="增量更新所有股票数据到最新")
+    group.add_argument("--compare-strategies", action="store_true", help="对比所有策略的回测表现")
+    group.add_argument("--optimize-all", action="store_true", help="优化所有策略的参数")
+    group.add_argument("--optimize", type=str, metavar="STRATEGY", help="优化单个策略的参数，例如: --optimize rsi")
+    group.add_argument("--progress", nargs="?", const=None, metavar="TASK", help="查看任务进度日志，可选指定任务名称")
+    group.add_argument("--evolve-strategies", action="store_true", help="运行策略进化，淘汰劣质策略")
+
+    # 其他参数
+    parser.add_argument("--auto-update", action="store_true", help="策略进化时自动更新最优参数配置")
+
+    args = parser.parse_args()
+
+    # 处理命令
+    if args.fetch_data:
+        success = QuantMainEngine.fetch_all_stock_data()
+        sys.exit(0 if success else 1)
+    elif args.update_data:
+        success = QuantMainEngine.update_all_stock_data()
+        sys.exit(0 if success else 1)
+    elif args.compare_strategies:
+        success, _, _ = QuantMainEngine.run_all_strategies_backtest()
+        sys.exit(0 if success else 1)
+    elif args.optimize_all:
+        success = QuantMainEngine.run_optimization()
+        sys.exit(0 if success else 1)
+    elif args.optimize:
+        success = QuantMainEngine.run_optimization(args.optimize)
+        sys.exit(0 if success else 1)
+    elif args.progress is not None:
+        # --progress 后面可以跟任务名称，也可以不跟
+        QuantMainEngine.show_progress(args.progress)
+    elif args.evolve_strategies:
+        print("=" * 80)
+        print("策略进化系统")
+        print("=" * 80)
+        from strategy.strategy_evolution import StrategyEvolutionSystem
+        evolution = StrategyEvolutionSystem()
+        keep, eliminate = evolution.run_evolution_cycle(auto_update_config=args.auto_update)
+        print("\n" + "=" * 80)
+        print(f"保留策略 ({len(keep)} 个): {keep}")
+        print(f"淘汰策略 ({len(eliminate)} 个): {eliminate}")
+        print("=" * 80)
+        sys.exit(0)
+    else:
+        # 没有指定操作，运行默认的单策略回测
+        engine = QuantMainEngine()
+        engine.run()

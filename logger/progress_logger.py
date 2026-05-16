@@ -195,10 +195,13 @@ class ProgressLogger:
         log_file = log_dir / f"progress_{task_name}.log" if task_name else None
         if not log_file or not log_file.exists():
             # 如果指定任务没找到，找任意最新的
-            log_files = sorted(log_dir.glob("progress_*.log"), key=lambda x: x.stat().st_mtime, reverse=True)
-            if not log_files:
+            try:
+                log_files = sorted(log_dir.glob("progress_*.log"), key=lambda x: x.stat().st_mtime, reverse=True)
+                if not log_files:
+                    return None
+                log_file = log_files[0]
+            except Exception:
                 return None
-            log_file = log_files[0]
 
         # 读取最后一条日志
         try:

@@ -51,9 +51,14 @@ class HotVolumeStrategy(BaseAStockStrategy):
         """初始化策略"""
         super().__init__()
 
-        # 获取当前股票代码
+        from config import Config
+        # 获取当前股票代码（预处理为无前缀格式，避免每次判断时重复处理）
         self.stock_code = self.datas[0]._name
-        # 热点股票列表缓存（避免重复计算）
+        if self.stock_code.startswith((Config.STOCK_PREFIX_SH, Config.STOCK_PREFIX_SZ)):
+            self.stock_code_no_prefix = self.stock_code[len(Config.STOCK_PREFIX_SH):]
+        else:
+            self.stock_code_no_prefix = self.stock_code
+        # 热点股票列表缓存（避免重复计算，存储为无前缀格式）
         self._hot_stocks_cache: List[str] = []
         self._cache_update_date = None
         self.logger = GlobalLogger.get_logger(__name__)
@@ -87,40 +92,32 @@ class HotVolumeStrategy(BaseAStockStrategy):
         if not self.p.hot_filter_enable:
             return True
 
-        # 每日更新一次缓存
         current_date = self.datas[0].datetime.date(0)
         if self._cache_update_date != current_date or not self._hot_stocks_cache:
             try:
                 # 转换为YYYYMMDD格式，传入end_date参数，查询对应日期的历史热点，避免未来数据泄露
                 end_date = current_date.strftime('%Y%m%d')
-                self._hot_stocks_cache = hot_plate_fetcher.get_hot_stocks(
+                hot_stocks = hot_plate_fetcher.get_hot_stocks(
                     days=self.p.hot_period,
                     top_n=self.p.hot_top_n,
                     end_date=end_date
                 )
+                # 预处理为无前缀格式，存储到缓存（仅处理一次，避免热路径重复计算）
+                self._hot_stocks_cache = [
+                    stock[len(Config.STOCK_PREFIX_SH):] if stock.startswith((Config.STOCK_PREFIX_SH, Config.STOCK_PREFIX_SZ)) else stock
+                    for stock in hot_stocks
+                ]
             except Exception as e:
                 self.logger.warning(f"获取热点股票列表失败，使用全市场股票池: {str(e)}")
                 # 异常降级：热点获取失败时不过滤，使用全市场股票池
                 return True
             self._cache_update_date = current_date
 
-        # 统一股票代码格式，完全匹配避免错误
-        # 当前股票代码去掉前缀
-        current_stock = self.stock_code
-        if current_stock.startswith('sh') or current_stock.startswith('sz'):
-            current_stock = current_stock[2:]
-
-        # 热点股票代码也去掉前缀，完全匹配
-        for hot_stock in self._hot_stocks_cache:
-            hot_stock_no_prefix = hot_stock[2:] if hot_stock.startswith(('sh', 'sz')) else hot_stock
-            if hot_stock_no_prefix == current_stock:
-                return True
-
-        return False
+        # 直接比较预处理后的股票代码（热路径优化，避免每次循环处理字符串）
+        return self.stock_code_no_prefix in self._hot_stocks_cache
 
     def _is_volume_steady(self) -> bool:
         """检查成交量是否平稳"""
-        # 确保有足够的数据
         if len(self.datavolume) < self.p.steady_period:
             return False
 
@@ -128,7 +125,6 @@ class HotVolumeStrategy(BaseAStockStrategy):
         if vol_mean <= 0:
             return False
 
-        # 波动率 = 标准差 / 均值
         volatility = self.day_vol_std[0] / vol_mean
         return volatility <= self.p.steady_threshold
 
@@ -137,11 +133,9 @@ class HotVolumeStrategy(BaseAStockStrategy):
         if not self.p.week_vol_enable:
             return True
 
-        # 确保周线有足够的数据
         if len(self.week_vol_sma) < 2:
             return False
 
-        # 最近1~2周成交量大于均线倍数
         current_week_vol = self.week_data.volume[0]
         prev_week_vol = self.week_data.volume[-1]
         week_ma = self.week_vol_sma[0]
@@ -160,7 +154,6 @@ class HotVolumeStrategy(BaseAStockStrategy):
         if len(self.day_vol_sma) < 2:
             return False
 
-        # 最近1~2日成交量大于均线倍数
         current_vol = self.datavolume[0]
         prev_vol = self.datavolume[-1]
         day_ma = self.day_vol_sma[0]
@@ -171,29 +164,14 @@ class HotVolumeStrategy(BaseAStockStrategy):
         return (current_vol >= day_ma * self.p.day_volume_ratio) or \
                (prev_vol >= day_ma * self.p.day_volume_ratio)
 
-    def next(self):
-        """策略核心逻辑"""
-        if self.order:
-            return
+    def _signal_buy(self):
+        """买入信号：属于热点板块，成交量平稳，周线放量，日线放量"""
+        is_hot = self._is_hot_stock()
+        is_steady = self._is_volume_steady()
+        week_surging = self._is_week_volume_surging()
+        day_surging = self._is_day_volume_surging()
+        return is_hot and is_steady and week_surging and day_surging
 
-        if not self.position:
-            # 空仓状态：检查买入条件
-            is_hot = self._is_hot_stock()
-            is_steady = self._is_volume_steady()
-            week_surging = self._is_week_volume_surging()
-            day_surging = self._is_day_volume_surging()
-
-            # 所有条件满足则买入
-            if is_hot and is_steady and week_surging and day_surging:
-                size = self.calculate_position_size()
-                if size > 0:
-                    self.order = self.buy(size=size)
-        else:
-            # 持仓状态：检查卖出条件
-            t1_ok = self.check_t1_rule()
-            stop_loss = self.check_stop_loss()
-            take_profit = self.check_take_profit()
-
-            # 满足条件则卖出
-            if t1_ok and (stop_loss or take_profit):
-                self.order = self.sell(size=self.position.size)
+    def _signal_sell(self):
+        """卖出信号：无额外技术信号，仅依靠止损止盈"""
+        return False

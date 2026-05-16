@@ -42,6 +42,10 @@ class ConfigSettings:
         return (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
 
     # ========== 股票配置 ==========
+    # 股票代码前缀常量
+    STOCK_PREFIX_SH = "sh"
+    STOCK_PREFIX_SZ = "sz"
+
     # 上证50成分股完整列表（50只）
     STOCK_CODES = [
         "sh600519",  # 贵州茅台
@@ -140,6 +144,9 @@ class ConfigSettings:
     # 止盈比例（0-1）
     TAKE_PROFIT_RATIO = 0.2
 
+    # 样本外测试比例：预留最后多少比例的数据作为样本外测试，不参与参数优化
+    OUT_OF_SAMPLE_RATIO = 0.2
+
     # ========== 日志配置 ==========
     # 日志级别：DEBUG, INFO, WARNING, ERROR
     LOG_LEVEL = "INFO"
@@ -166,6 +173,7 @@ class ConfigSettings:
     @classmethod
     def ensure_dirs(cls):
         """确保所有目录存在"""
+        from utils.common_utils import CommonUtils
         dirs = [
             cls.LOG_DIR,
             cls.SAVED_DATA_DIR,
@@ -174,7 +182,7 @@ class ConfigSettings:
             cls.CONFIG_DIR,
         ]
         for dir_path in dirs:
-            dir_path.mkdir(parents=True, exist_ok=True)
+            CommonUtils.ensure_dir_exists(dir_path)
 
     @classmethod
     def get_stock_list(cls):
