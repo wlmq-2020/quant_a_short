@@ -6,9 +6,11 @@
 from .common_utils import CommonUtils
 from .atomic_writer import AtomicWriter
 from .file_rw_lock import FileRWLock
+from .email_notifier import EmailNotifier
 
 __all__ = [
     'CommonUtils',
     'AtomicWriter',
     'FileRWLock',
+    'EmailNotifier',
 ]

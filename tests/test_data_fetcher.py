@@ -358,9 +358,10 @@ class TestDataFetcher(unittest.TestCase):
             mock_fetch.assert_called_once()
             pd.testing.assert_frame_equal(result, expected_df)
 
+    @patch('os.remove')
     @patch('pathlib.Path.exists')
     @patch('pandas.read_csv')
-    def test_update_stock_data_already_latest(self, mock_read_csv, mock_exists):
+    def test_update_stock_data_already_latest(self, mock_read_csv, mock_exists, mock_remove):
         """测试 update_stock_data - 数据已是最新"""
         from data_fetcher.data_fetcher import AStockDataFetcher
         from datetime import datetime, timedelta
@@ -371,6 +372,8 @@ class TestDataFetcher(unittest.TestCase):
 
         # Mock 本地文件存在
         mock_exists.return_value = True
+        # Mock os.remove 避免文件不存在错误
+        mock_remove.return_value = None
 
         # 创建包含今天日期的数据
         today = datetime.now()
@@ -436,23 +439,34 @@ class TestDataFetcher(unittest.TestCase):
         self.assertEqual(results['failed'], 0)
 
     @patch('builtins.print')
-    @patch('data_fetcher.data_fetcher.AStockDataFetcher.fetch_all_stocks')
-    def test_fetch_all_with_print(self, mock_fetch_all, mock_print):
-        """测试 fetch_all_with_print - 调用 fetch_all_stocks"""
+    @patch('data_fetcher.data_fetcher.AStockDataFetcher.fetch_stock_data')
+    def test_fetch_all_with_print(self, mock_fetch_stock, mock_print):
+        """测试 fetch_all_with_print - 成功下载所有股票"""
         from data_fetcher.data_fetcher import AStockDataFetcher
+        import pandas as pd
 
         with patch('data_fetcher.data_fetcher.AK_AVAILABLE', True):
             with patch('data_fetcher.data_fetcher.BAOSTOCK_AVAILABLE', True):
                 fetcher = AStockDataFetcher(self.config, self.logger)
 
-        # Mock fetch_all_stocks 返回 True
-        mock_fetch_all.return_value = True
+        # Mock fetch_stock_data 返回非空DataFrame
+        mock_df = pd.DataFrame({
+            'date': ['2024-01-01'],
+            'open': [100.0],
+            'high': [105.0],
+            'low': [99.0],
+            'close': [102.0],
+            'volume': [1000000]
+        })
+        mock_fetch_stock.return_value = mock_df
 
         # 调用 fetch_all_with_print
         result = fetcher.fetch_all_with_print()
 
-        # 验证返回值
+        # 验证返回值（全部成功）
         self.assertTrue(result)
+        # 验证fetch_stock_data被调用次数等于股票列表长度
+        self.assertEqual(mock_fetch_stock.call_count, len(self.config.get_stock_list()))
 
 
 if __name__ == '__main__':

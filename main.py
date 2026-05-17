@@ -259,6 +259,7 @@ class QuantMainEngine:
             'tests.test_data_fetcher',
             'tests.test_logger',
             'tests.test_config',
+            'tests.test_paper_trade',
         ]
 
         loader = unittest.TestLoader()
@@ -525,6 +526,214 @@ class QuantMainEngine:
             traceback.print_exc()
             return False
 
+    @staticmethod
+    def run_paper_trade(initial_capital=None, max_position_ratio=None, top_strategies=5):
+        """
+        运行模拟盘每日交易
+
+        参数:
+            initial_capital: 自定义初始资金，优先级高于配置
+            max_position_ratio: 自定义单票最大仓位比例，优先级高于配置
+            top_strategies: 使用排名前N的策略
+        """
+        print("=" * 80)
+        print("🎯 模拟盘交易系统")
+        print("=" * 80)
+
+        # 确保目录存在
+        Config.ensure_dirs()
+
+        # 初始化日志
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+
+        try:
+            # 自定义配置（如果有）
+            if max_position_ratio is not None:
+                Config.PAPER_TRADE_MAX_POSITION_RATIO = max_position_ratio
+                logger.info(f"使用自定义单票最大仓位比例: {max_position_ratio:.2%}")
+
+            # 初始化模拟盘引擎
+            from paper_trade import PaperTradeEngine
+            engine = PaperTradeEngine(Config, logger, initial_capital=initial_capital)
+
+            # 加载历史状态
+            engine.load_state()
+
+            # 加载策略
+            engine.load_top_strategies(top_strategies)
+
+            # 运行每日交易
+            report = engine.run_daily_trade()
+
+            if report:
+                print("\n" + "=" * 80)
+                print("📋 今日交易结果")
+                print("=" * 80)
+                print(f"交易日期: {report['trade_date']}")
+                print(f"今日交易: {report['total_trades']} 笔（买入{report['buy_trades']}笔，卖出{report['sell_trades']}笔）")
+                print(f"今日实现盈亏: {report['total_realized_profit']:.2f} 元")
+                print(f"当前可用资金: {report['cash']:.2f} 元")
+                print(f"当前持仓市值: {report['position_value']:.2f} 元")
+                print(f"当前总资产: {report['total_value']:.2f} 元")
+                print(f"总收益率: {report['total_return_pct']:.2f} %")
+                print(f"当前持仓数量: {report['position_count']} 只")
+
+                if report['positions']:
+                    print("\n📊 当前持仓:")
+                    for pos in report['positions']:
+                        profit_icon = "✅" if pos['unrealized_profit'] >= 0 else "❌"
+                        print(
+                            f"{profit_icon} {pos['stock_code']}: {pos['shares']}股，成本价{pos['avg_price']:.2f}，"
+                            f"当前价{pos['current_price']:.2f}，浮盈{pos['unrealized_profit']:.2f}元（{pos['unrealized_profit_pct']:.2f}%）"
+                        )
+
+                if report['trade_details']:
+                    print("\n📝 今日交易明细:")
+                    for trade in report['trade_details']:
+                        if trade['type'] == 'buy':
+                            print(
+                                f"🔵 买入 {trade['stock_code']}: {trade['shares']}股，价格{trade['price']:.2f}，"
+                                f"金额{trade['amount']:.2f}，手续费{trade['fee']:.2f}"
+                            )
+                        else:
+                            profit_icon = "✅" if trade['realized_profit'] >= 0 else "❌"
+                            print(
+                                f"🔴 卖出 {trade['stock_code']}: {trade['shares']}股，价格{trade['price']:.2f}，"
+                                f"收入{trade['net_income']:.2f}，{profit_icon} 盈亏{trade['realized_profit']:.2f}元（{trade['realized_profit_pct']:.2f}%）"
+                            )
+
+                # 发送邮件通知
+                try:
+                    from utils import EmailNotifier
+                    notifier = EmailNotifier(Config)
+                    if notifier.enabled:
+                        send_success = notifier.send_daily_report(report)
+                        if send_success:
+                            print("\n📧 交易报告邮件已发送")
+                        else:
+                            print("\n⚠️  交易报告邮件发送失败")
+                except Exception as e:
+                    logger.warning(f"邮件通知异常: {str(e)}")
+
+                print("\n" + "=" * 80)
+                print("✅ 模拟盘交易运行完成！")
+                print("=" * 80)
+            else:
+                print("\n❌ 模拟盘交易运行失败，无有效报告")
+                return False
+
+            return True
+
+        except Exception as e:
+            print(f"\n❌ 模拟盘运行失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            logger.error(f"模拟盘运行失败: {str(e)}", exc_info=True)
+            return False
+
+    @staticmethod
+    def generate_paper_trade_report(start_date=None, end_date=None):
+        """
+        生成模拟盘历史交易报告
+
+        参数:
+            start_date: 开始日期，格式YYYYMMDD
+            end_date: 结束日期，格式YYYYMMDD
+        """
+        print("=" * 80)
+        print("📊 模拟盘历史报告")
+        print("=" * 80)
+
+        # 确保目录存在
+        Config.ensure_dirs()
+
+        # 初始化日志
+        from logger.logger import GlobalLogger
+        logger = GlobalLogger(
+            log_dir=Config.LOG_DIR,
+            log_level=Config.LOG_LEVEL,
+            retention_days=Config.LOG_RETENTION_DAYS
+        )
+
+        try:
+            # 初始化模拟盘引擎
+            from paper_trade import PaperTradeEngine
+            engine = PaperTradeEngine(Config, logger)
+
+            # 加载历史状态
+            if not engine.load_state():
+                print("❌ 无历史模拟盘数据，请先运行 --paper-trade")
+                return False
+
+            # 生成历史报告
+            report = engine.generate_history_report(start_date, end_date)
+
+            # 打印报告
+            print("\n" + "=" * 80)
+            if start_date or end_date:
+                date_range = ""
+                if start_date:
+                    date_range += f"从 {start_date}"
+                if end_date:
+                    date_range += f"到 {end_date}"
+                print(f"📅 报告范围: {date_range}")
+            else:
+                print("📅 报告范围: 全部历史")
+            print("=" * 80)
+            print(f"总交易次数: {report['total_trades']} 次（买入{report['buy_trades']}次，卖出{report['sell_trades']}次）")
+            print(f"盈利交易次数: {report['winning_trades']} 次")
+            print(f"胜率: {report['win_rate']:.2f} %")
+            print(f"累计实现盈亏: {report['total_realized_profit']:.2f} 元")
+            print(f"最大回撤: {report['max_drawdown_pct']:.2f} %")
+            print("")
+            print(f"当前可用资金: {report['current_cash']:.2f} 元")
+            print(f"当前持仓市值: {report['current_position_value']:.2f} 元")
+            print(f"当前总资产: {report['current_total_value']:.2f} 元")
+            print(f"总收益率: {report['total_return_pct']:.2f} %")
+            print("")
+
+            if report['current_positions']:
+                print("📊 当前持仓:")
+                for pos in report['current_positions']:
+                    profit_icon = "✅" if pos['unrealized_profit'] >= 0 else "❌"
+                    print(
+                        f"{profit_icon} {pos['stock_code']}: {pos['shares']}股，成本价{pos['avg_price']:.2f}，"
+                        f"当前价{pos['current_price']:.2f}，浮盈{pos['unrealized_profit']:.2f}元（{pos['unrealized_profit_pct']:.2f}%）"
+                    )
+                print("")
+
+            if report['recent_trades']:
+                print("📝 最近10笔交易:")
+                for trade in report['recent_trades']:
+                    if trade['type'] == 'buy':
+                        print(
+                            f"[{trade['date']}] 🔵 买入 {trade['stock_code']}: {trade['shares']}股，价格{trade['price']:.2f}"
+                        )
+                    else:
+                        profit_icon = "✅" if trade['realized_profit'] >= 0 else "❌"
+                        print(
+                            f"[{trade['date']}] 🔴 卖出 {trade['stock_code']}: {trade['shares']}股，价格{trade['price']:.2f}，"
+                            f"{profit_icon} 盈亏{trade['realized_profit']:.2f}元"
+                        )
+
+            print("\n" + "=" * 80)
+            print("✅ 报告生成完成！")
+            print("=" * 80)
+
+            return True
+
+        except Exception as e:
+            print(f"\n❌ 报告生成失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            logger.error(f"报告生成失败: {str(e)}", exc_info=True)
+            return False
+
 
 
 
@@ -544,13 +753,17 @@ if __name__ == "__main__":
 使用示例:
   python main.py                          # 运行单策略回测（默认策略在config中配置）
   python main.py --fetch-data             # 下载所有股票历史数据
-  python main.py --update-data            # 增量更新所有股票数据
+  python main.py --update-data            # 增量更新所有股票数据到最新
   python main.py --compare-strategies     # 对比所有策略的回测表现
   python main.py --optimize-all           # 优化所有策略的参数
   python main.py --optimize rsi           # 优化单个策略（rsi）的参数
   python main.py --progress               # 查看任务进度日志
   python main.py --evolve-strategies      # 运行策略进化，淘汰劣质策略
   python main.py --evolve-strategies --auto-update  # 自动更新最优参数配置
+  python main.py --paper-trade            # 运行模拟盘每日交易
+  python main.py --paper-trade --initial-capital 1000000 --top-strategies 5  # 自定义初始资金和策略数量
+  python main.py --paper-trade-report     # 查看完整历史报告
+  python main.py --paper-trade-report --report-start-date 20240101  # 查看指定日期之后的报告
         """
     )
 
@@ -563,9 +776,16 @@ if __name__ == "__main__":
     group.add_argument("--optimize", type=str, metavar="STRATEGY", help="优化单个策略的参数，例如: --optimize rsi")
     group.add_argument("--progress", nargs="?", const=None, metavar="TASK", help="查看任务进度日志，可选指定任务名称")
     group.add_argument("--evolve-strategies", action="store_true", help="运行策略进化，淘汰劣质策略")
+    group.add_argument("--paper-trade", action="store_true", help="运行模拟盘每日交易")
+    group.add_argument("--paper-trade-report", action="store_true", help="生成模拟盘历史交易报告")
 
     # 其他参数
     parser.add_argument("--auto-update", action="store_true", help="策略进化时自动更新最优参数配置")
+    parser.add_argument("--initial-capital", type=float, help="自定义模拟盘初始资金，优先级高于配置文件")
+    parser.add_argument("--max-position-ratio", type=float, help="自定义单票最大仓位比例，优先级高于配置文件")
+    parser.add_argument("--top-strategies", type=int, default=5, help="使用排名前N的策略，默认5个")
+    parser.add_argument("--report-start-date", type=str, metavar="YYYYMMDD", help="历史报告开始日期，格式YYYYMMDD")
+    parser.add_argument("--report-end-date", type=str, metavar="YYYYMMDD", help="历史报告结束日期，格式YYYYMMDD")
 
     args = parser.parse_args()
 
@@ -600,6 +820,21 @@ if __name__ == "__main__":
         print(f"淘汰策略 ({len(eliminate)} 个): {eliminate}")
         print("=" * 80)
         sys.exit(0)
+    elif args.paper_trade:
+        # 运行模拟盘每日交易
+        success = QuantMainEngine.run_paper_trade(
+            initial_capital=args.initial_capital,
+            max_position_ratio=args.max_position_ratio,
+            top_strategies=args.top_strategies
+        )
+        sys.exit(0 if success else 1)
+    elif args.paper_trade_report:
+        # 生成模拟盘历史报告
+        success = QuantMainEngine.generate_paper_trade_report(
+            start_date=args.report_start_date,
+            end_date=args.report_end_date
+        )
+        sys.exit(0 if success else 1)
     else:
         # 没有指定操作，运行默认的单策略回测
         engine = QuantMainEngine()

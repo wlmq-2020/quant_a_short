@@ -57,6 +57,19 @@ class ConfigParams:
         return strategy_data.get('best_params', {})
 
     @classmethod
+    def get_best_params(cls, strategy_type: str) -> Dict:
+        """
+        获取指定策略的最优参数（对外公开方法，避免直接调用私有方法）
+
+        参数:
+            strategy_type: 策略类型
+
+        返回:
+            dict: 最优参数字典（仅best_params部分）
+        """
+        return cls.get_optimized_params(strategy_type)
+
+    @classmethod
     def get_all_optimized_strategies(cls) -> List[str]:
         """获取所有已优化的策略列表"""
         all_params = cls._load_best_params()

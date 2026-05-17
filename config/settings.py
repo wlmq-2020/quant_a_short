@@ -4,6 +4,7 @@
 存放所有静态配置参数，不随运行过程改变
 """
 import os
+import pytz
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -11,7 +12,10 @@ from datetime import datetime, timedelta
 class ConfigSettings:
     """静态配置类"""
 
-    # ========== 项目路径配置 ==========
+    # ========== 项目基础配置 ==========
+    # 时区：统一使用上海时区
+    TIMEZONE = pytz.timezone('Asia/Shanghai')
+
     # 项目根目录（兼容 config.py 在根目录或 config/ 目录的情况）
     _file_path = Path(__file__)
     if _file_path.parent.name == "config":
@@ -34,12 +38,12 @@ class ConfigSettings:
     @classmethod
     def get_start_date(cls):
         """获取回测开始日期（3年前）"""
-        return (datetime.now() - timedelta(days=3*365)).strftime("%Y%m%d")
+        return (datetime.now(cls.TIMEZONE) - timedelta(days=3*365)).strftime("%Y%m%d")
 
     @classmethod
     def get_end_date(cls):
         """获取回测结束日期（昨天）"""
-        return (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        return (datetime.now(cls.TIMEZONE) - timedelta(days=1)).strftime("%Y%m%d")
 
     # ========== 股票配置 ==========
     # 股票代码前缀常量
@@ -170,6 +174,26 @@ class ConfigSettings:
     # 默认取TOP N个热点板块
     HOT_TOP_N_DEFAULT = 10
 
+    # ========== 模拟盘配置 ==========
+    # 模拟盘数据存储目录
+    PAPER_TRADE_DATA_DIR = PROJECT_ROOT / "paper_trade_data"
+    # 模拟盘默认初始资金
+    PAPER_TRADE_INITIAL_CAPITAL = 1000000.0  # 可自定义，默认100万
+    # 单只股票最大仓位比例
+    PAPER_TRADE_MAX_POSITION_RATIO = 0.15  # 可自定义，默认15%
+    # 加权投票阈值：达到总权重的多少比例执行交易
+    PAPER_TRADE_SIGNAL_THRESHOLD = 0.6  # 默认60%
+    # 自选股票池文件路径
+    STOCK_POOL_FILE = CONFIG_DIR / "stock_pool.txt"
+
+    # ========== 邮件通知配置 ==========
+    EMAIL_NOTIFICATION_ENABLED = False
+    EMAIL_SMTP_SERVER = "smtp.qq.com"
+    EMAIL_SMTP_PORT = 465
+    EMAIL_SENDER = ""
+    EMAIL_SENDER_PASSWORD = os.getenv("QUANT_EMAIL_PASSWORD", "")  # 从环境变量读取授权码，默认空
+    EMAIL_RECIPIENTS = []  # 收件人列表
+
     @classmethod
     def ensure_dirs(cls):
         """确保所有目录存在"""
@@ -180,6 +204,8 @@ class ConfigSettings:
             cls.REPORTS_DIR,
             cls.TEMP_DIR,
             cls.CONFIG_DIR,
+            cls.PAPER_TRADE_DATA_DIR,
+            cls.PAPER_TRADE_DATA_DIR / "reports",
         ]
         for dir_path in dirs:
             CommonUtils.ensure_dir_exists(dir_path)
@@ -196,13 +222,14 @@ class ConfigSettings:
         return save_path.exists()
 
     @classmethod
-    def calculate_fees(cls, amount, is_sell=False):
+    def calculate_fees(cls, amount, is_sell=False, stock_code=None):
         """
         计算交易费用
 
         参数:
             amount: 交易金额
             is_sell: 是否为卖出
+            stock_code: 股票代码，用于判断是否收取过户费（沪市股票收取，深市免收）
 
         返回:
             总手续费
@@ -210,10 +237,38 @@ class ConfigSettings:
         # 手续费
         commission = max(amount * cls.COMMISSION_RATE, cls.MIN_COMMISSION)
 
-        # 过户费（双向）
-        transfer_fee = amount * cls.TRANSFER_FEE_RATE
+        # 过户费（双向，仅沪市股票收取）
+        transfer_fee = 0.0
+        if stock_code and stock_code.startswith(cls.STOCK_PREFIX_SH):
+            transfer_fee = amount * cls.TRANSFER_FEE_RATE
 
         # 印花税（仅卖出）
         stamp_duty = amount * cls.STAMP_DUTY_RATE if is_sell else 0.0
 
         return commission + transfer_fee + stamp_duty
+
+    @classmethod
+    def load_stock_pool(cls) -> list:
+        """加载自选股票池"""
+        stock_codes = []
+        if not cls.STOCK_POOL_FILE.exists():
+            # 如果股票池文件不存在，返回默认的上证50前10只
+            return cls.STOCK_CODES[:10]
+
+        try:
+            with open(cls.STOCK_POOL_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    # 提取股票代码，忽略后面的注释
+                    code = line.split('#')[0].strip()
+                    if code:
+                        stock_codes.append(code)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"加载股票池文件失败：{str(e)}，使用默认股票池")
+            return cls.STOCK_CODES[:10]
+
+        return stock_codes if stock_codes else cls.STOCK_CODES[:10]
