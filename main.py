@@ -260,6 +260,8 @@ class QuantMainEngine:
             'tests.test_logger',
             'tests.test_config',
             'tests.test_paper_trade',
+            'tests.test_utils',
+            'tests.test_main',
         ]
 
         loader = unittest.TestLoader()

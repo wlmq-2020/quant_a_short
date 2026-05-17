@@ -66,7 +66,9 @@ if __name__ == "__main__":
             "tests.test_data_fetcher",
             "tests.test_logger",
             "tests.test_config",
-            "tests.test_paper_trade"
+            "tests.test_paper_trade",
+            "tests.test_utils",
+            "tests.test_main"
         ])
         sys.exit(0 if success else 1)
 
